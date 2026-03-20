@@ -20,6 +20,9 @@ export function createGameConfig(parent: string): Phaser.Types.Core.GameConfig {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
+    dom: {
+      createContainer: true,
+    },
     scene: [BootScene, IntroScene, CharacterSelectScene, WorldScene],
     physics: {
       default: 'arcade',
