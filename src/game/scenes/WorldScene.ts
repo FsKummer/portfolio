@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
+import { loadVisitorProfile } from '../store/sessionStore'
 
 const PLAYER_SPEED = 240
 
@@ -20,6 +21,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create() {
+    const profile = loadVisitorProfile()
+    const playerTexture = profile.avatar === 'girl' ? 'avatar-girl' : 'avatar-boy'
+
     this.cameras.main.setBackgroundColor('#08101d')
     this.cursors = this.input.keyboard?.createCursorKeys()
     this.movementKeys = this.input.keyboard?.addKeys({
@@ -31,14 +35,15 @@ export class WorldScene extends Phaser.Scene {
 
     this.createGrid()
 
-    this.player = this.physics.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'player')
+    this.player = this.physics.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, playerTexture)
     this.player.setCollideWorldBounds(true)
-    this.player.setSize(20, 28)
+    this.player.setSize(28, 44)
+    this.player.setScale(1.15)
 
     this.physics.world.setBounds(48, 48, GAME_WIDTH - 96, GAME_HEIGHT - 96)
 
     this.add
-      .text(48, 40, 'world scene placeholder', {
+      .text(48, 40, `welcome, ${profile.visitorName || 'traveler'}`, {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#dce4ff',

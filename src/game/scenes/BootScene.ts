@@ -17,14 +17,8 @@ export class BootScene extends Phaser.Scene {
     graphics.fillCircle(4, 4, 4)
     graphics.generateTexture('star', 8, 8)
 
-    graphics.clear()
-    graphics.fillStyle(0x7bdff6)
-    graphics.fillRoundedRect(0, 0, 28, 36, 8)
-    graphics.fillStyle(0x102030)
-    graphics.fillRect(8, 8, 12, 12)
-    graphics.fillStyle(0xeef2ff)
-    graphics.fillRect(11, 23, 6, 9)
-    graphics.generateTexture('player', 28, 36)
+    this.generateAvatarTexture(graphics, 'avatar-boy', 0x7bdff6, 0x102030)
+    this.generateAvatarTexture(graphics, 'avatar-girl', 0xf7a1ff, 0x261335)
 
     graphics.clear()
     graphics.fillStyle(0x0d1325)
@@ -34,5 +28,23 @@ export class BootScene extends Phaser.Scene {
     graphics.generateTexture('tile', 96, 96)
 
     graphics.destroy()
+  }
+
+  private generateAvatarTexture(
+    graphics: Phaser.GameObjects.Graphics,
+    textureKey: string,
+    bodyColor: number,
+    accentColor: number,
+  ) {
+    graphics.clear()
+    graphics.fillStyle(bodyColor)
+    graphics.fillRoundedRect(2, 2, 40, 52, 12)
+    graphics.fillStyle(accentColor)
+    graphics.fillCircle(14, 20, 3)
+    graphics.fillCircle(30, 20, 3)
+    graphics.fillRoundedRect(14, 30, 16, 6, 3)
+    graphics.fillStyle(0xeef2ff)
+    graphics.fillRect(16, 40, 12, 10)
+    graphics.generateTexture(textureKey, 44, 56)
   }
 }
