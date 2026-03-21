@@ -68,8 +68,8 @@ export class InteriorScene extends Phaser.Scene {
     this.createPlayer()
     this.physics.add.collider(this.player as Phaser.Physics.Arcade.Sprite, this.blockers)
 
-    const width = 12 * TILE_SIZE
-    const height = 9 * TILE_SIZE
+    const width = this.interior.width * TILE_SIZE
+    const height = this.interior.height * TILE_SIZE
     this.physics.world.setBounds(0, 0, width, height)
     this.cameras.main.setBounds(0, 0, width, height)
     this.cameras.main.startFollow(this.player as Phaser.Physics.Arcade.Sprite, true, 0.12, 0.12)
@@ -135,15 +135,56 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private buildRoom() {
-    for (let y = 0; y < 9; y += 1) {
-      for (let x = 0; x < 12; x += 1) {
-        this.add.image(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, 'room-builder-tiles', this.interior.floorFrame)
-          .setDisplaySize(TILE_SIZE, TILE_SIZE)
-          .setDepth(0)
-      }
+    this.add.image(0, 0, this.interior.imageKey).setOrigin(0).setScale(TILE_SIZE / 16).setDepth(0)
+    this.createBlockersFromJson()
+    this.interior.objects.forEach((object) => this.addInteriorObject(object))
+  }
+
+  private createBlockersFromJson() {
+    const rawJson = this.cache.text.get(this.interior.jsonKey)
+    if (!rawJson) {
+      return
     }
 
-    this.interior.objects.forEach((object) => this.addInteriorObject(object))
+    const mapData = JSON.parse(rawJson) as {
+      layers?: Array<{ data?: number[]; name?: string; type?: string; visible?: boolean }>
+    }
+    const blockedCells = new Set<string>()
+    const exitCells = new Set(this.interior.objects.filter((object) => object.kind === 'exit').map((object) => `${object.x},${object.y}`))
+
+    mapData.layers?.forEach((layer) => {
+      if (layer.type !== 'tilelayer' || !layer.name || !this.interior.blockingLayers.includes(layer.name)) {
+        return
+      }
+
+      layer.data?.forEach((gid, index) => {
+        const tileId = gid & 0x1fffffff
+        if (tileId === 0) {
+          return
+        }
+
+        const x = index % this.interior.width
+        const y = Math.floor(index / this.interior.width)
+        const cellKey = `${x},${y}`
+
+        if (exitCells.has(cellKey) || blockedCells.has(cellKey)) {
+          return
+        }
+
+        blockedCells.add(cellKey)
+
+        const blocker = this.add.rectangle(
+          x * TILE_SIZE + TILE_SIZE / 2,
+          y * TILE_SIZE + TILE_SIZE / 2,
+          TILE_SIZE * 0.9,
+          TILE_SIZE * 0.9,
+          0x000000,
+          0,
+        )
+        this.physics.add.existing(blocker, true)
+        this.blockers?.add(blocker)
+      })
+    })
   }
 
   private addInteriorObject(object: InteriorObject) {
@@ -154,10 +195,6 @@ export class InteriorScene extends Phaser.Scene {
       const npc = this.add.sprite(worldX, worldY + 8, object.sprite, 18)
       npc.setScale(2.4)
       npc.setDepth(worldY + 12)
-    } else if (object.kind !== 'exit') {
-      this.add.image(worldX, worldY, 'interiors-tiles', object.frame ?? 0)
-        .setDisplaySize(TILE_SIZE, TILE_SIZE)
-        .setDepth(worldY + 8)
     }
 
     if (object.solid) {
@@ -190,17 +227,20 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private createUi() {
-    this.prompt = this.add.text(384, 408, '', {
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#d7ddf7',
-      backgroundColor: '#08101d',
-      padding: { x: 10, y: 6 },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(2000).setVisible(false)
+    this.prompt = this.add
+      .text(384, 408, '', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#d7ddf7',
+        backgroundColor: '#08101d',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(2000)
+      .setVisible(false)
 
-    const dialogueBackground = this.add
-      .rectangle(384, 344, 700, 120, 0x050913, 0.94)
-      .setStrokeStyle(2, 0x90a3ff, 0.35)
+    const dialogueBackground = this.add.rectangle(384, 344, 700, 120, 0x050913, 0.94).setStrokeStyle(2, 0x90a3ff, 0.35)
     const dialogueTitle = this.add.text(50, 294, this.interior.title, {
       fontFamily: 'monospace',
       fontSize: '16px',
@@ -243,7 +283,7 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     if (this.activeInteractive.kind === 'exit') {
-      this.scene.start('world', { spawn: this.returnTo })
+      this.scene.start('world', { spawn: this.returnTo, suppressHouseEntryMs: 900 })
       return
     }
 
@@ -280,10 +320,7 @@ export class InteriorScene extends Phaser.Scene {
       return
     }
 
-    const label = this.activeInteractive.kind === 'exit'
-      ? 'leave house'
-      : this.activeInteractive.label || 'inspect'
-
+    const label = this.activeInteractive.kind === 'exit' ? 'leave house' : this.activeInteractive.label || 'inspect'
     this.prompt.setText('press e: ' + label).setVisible(true)
   }
 

@@ -7,7 +7,7 @@ export const COLLISION_COLUMNS = 70
 
 export const WORLD_SPAWN = {
   x: 1402,
-  y: 333,
+  y: 420,
 }
 
 export type InteractionZone = {
@@ -58,28 +58,28 @@ export const WORLD_INTERACTIONS: InteractionZone[] = [
     id: 'projects-house',
     label: 'Projects House',
     message: 'Enter the projects house.',
-    x: 44 * WORLD_SCALE,
-    y: 120 * WORLD_SCALE,
-    width: 144 * WORLD_SCALE,
-    height: 132 * WORLD_SCALE,
+    x: 76 * WORLD_SCALE,
+    y: 156 * WORLD_SCALE,
+    width: 58 * WORLD_SCALE,
+    height: 42 * WORLD_SCALE,
   },
   {
     id: 'about-house',
     label: 'About House',
     message: 'Enter the about house.',
-    x: 302 * WORLD_SCALE,
-    y: 10 * WORLD_SCALE,
-    width: 124 * WORLD_SCALE,
-    height: 120 * WORLD_SCALE,
+    x: 345 * WORLD_SCALE,
+    y: 48 * WORLD_SCALE,
+    width: 42 * WORLD_SCALE,
+    height: 32 * WORLD_SCALE,
   },
   {
     id: 'skills-house',
     label: 'Skills House',
     message: 'Enter the skills house.',
-    x: 510 * WORLD_SCALE,
-    y: 118 * WORLD_SCALE,
-    width: 128 * WORLD_SCALE,
-    height: 182 * WORLD_SCALE,
+    x: 537 * WORLD_SCALE,
+    y: 159 * WORLD_SCALE,
+    width: 42 * WORLD_SCALE,
+    height: 34 * WORLD_SCALE,
   },
   {
     id: 'contact-dock',
