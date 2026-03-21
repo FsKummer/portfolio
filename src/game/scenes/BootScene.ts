@@ -29,6 +29,15 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 32,
     })
+    this.load.spritesheet('alex-idle', '/assets/sprites/alex_idle_anim_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32,
+    })
+    this.load.spritesheet('bob-idle', '/assets/sprites/bob_idle_anim_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32,
+    })
+    this.load.image('world-map', '/assets/maps/game_map.png')
     this.load.spritesheet('room-builder-tiles', '/assets/tilesets/room_builder_free_32x32.png', {
       frameWidth: 32,
       frameHeight: 32,

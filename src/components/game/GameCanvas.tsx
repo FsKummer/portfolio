@@ -22,7 +22,6 @@ export function GameCanvas() {
   return (
     <div className="game-canvas">
       <div ref={mountRef} className="game-canvas__mount" />
-      <div className="game-canvas__hud">Foundation build: scene pipeline active</div>
     </div>
   )
 }

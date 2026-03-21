@@ -1,57 +1,69 @@
 import Phaser from 'phaser'
 import {
-  FLOOR_FRAMES,
-  WORLD_DECORATIONS,
+  COLLISION_BLOCKER,
+  WORLD_COLLISIONS,
+  WORLD_HEIGHT,
   WORLD_INTERACTIONS,
-  WORLD_LAYOUT,
+  WORLD_SCALE,
   WORLD_SPAWN,
   WORLD_TILE_SIZE,
+  WORLD_WIDTH,
   type InteractionZone,
 } from '../data/worldMap'
+import { portfolioDialogues } from '../data/portfolioContent'
 import { loadVisitorProfile } from '../store/sessionStore'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
 
-const PLAYER_SPEED = 140
-const PLAYER_SCALE = 2.2
+type WorldSceneData = {
+  spawn?: {
+    x: number
+    y: number
+  }
+}
+
+const PLAYER_SPEED = 180
+const PLAYER_RUN_SPEED = 280
+const PLAYER_SCALE = 3
 
 export class WorldScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
-
   private player?: Phaser.Physics.Arcade.Sprite
-
   private movementKeys?: {
     up: Phaser.Input.Keyboard.Key
     down: Phaser.Input.Keyboard.Key
     left: Phaser.Input.Keyboard.Key
     right: Phaser.Input.Keyboard.Key
     interact: Phaser.Input.Keyboard.Key
+    sprint: Phaser.Input.Keyboard.Key
+    toggleHud: Phaser.Input.Keyboard.Key
   }
-
+  private helpPanel?: Phaser.GameObjects.Container
   private interactionPrompt?: Phaser.GameObjects.Text
-
   private dialogueBox?: Phaser.GameObjects.Container
-
   private dialogueBody?: Phaser.GameObjects.Text
-
   private activeZone?: InteractionZone
-
   private dialogueOpen = false
-
   private direction: Direction = 'down'
-
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
+  private spawnPoint = WORLD_SPAWN
 
   constructor() {
     super('world')
   }
 
+  init(data: WorldSceneData = {}) {
+    this.spawnPoint = data.spawn ?? WORLD_SPAWN
+    this.activeZone = undefined
+    this.dialogueOpen = false
+    this.direction = 'down'
+  }
+
   create() {
     const profile = loadVisitorProfile()
-
     this.playerAnimPrefix = profile.avatar === 'girl' ? 'amelia' : 'adam'
 
-    this.cameras.main.setBackgroundColor('#0d1120')
+    this.cameras.main.setBackgroundColor('#77d8e7')
     this.cursors = this.input.keyboard?.createCursorKeys()
     this.movementKeys = this.input.keyboard?.addKeys({
       up: 'W',
@@ -59,27 +71,18 @@ export class WorldScene extends Phaser.Scene {
       left: 'A',
       right: 'D',
       interact: 'E',
+      sprint: 'SHIFT',
+      toggleHud: 'H',
     }) as WorldScene['movementKeys']
 
     const blockers = this.createWorld()
     this.createPlayer()
     this.physics.add.collider(this.player as Phaser.Physics.Arcade.Sprite, blockers)
 
-    this.physics.world.setBounds(
-      0,
-      0,
-      WORLD_LAYOUT[0].length * WORLD_TILE_SIZE,
-      WORLD_LAYOUT.length * WORLD_TILE_SIZE,
-    )
-
-    this.cameras.main.setBounds(
-      0,
-      0,
-      WORLD_LAYOUT[0].length * WORLD_TILE_SIZE,
-      WORLD_LAYOUT.length * WORLD_TILE_SIZE,
-    )
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
     this.cameras.main.startFollow(this.player as Phaser.Physics.Arcade.Sprite, true, 0.12, 0.12)
-    this.cameras.main.setZoom(1.8)
+    this.cameras.main.setZoom(1)
     this.cameras.main.roundPixels = true
 
     this.createHud(profile.visitorName || 'traveler')
@@ -102,23 +105,26 @@ export class WorldScene extends Phaser.Scene {
     const up = this.cursors?.up.isDown || this.movementKeys?.up.isDown
     const down = this.cursors?.down.isDown || this.movementKeys?.down.isDown
 
+    const sprinting = Boolean(this.movementKeys?.sprint.isDown)
+    const currentSpeed = sprinting ? PLAYER_RUN_SPEED : PLAYER_SPEED
+
     let velocityX = 0
     let velocityY = 0
 
     if (left) {
-      velocityX = -PLAYER_SPEED
+      velocityX = -currentSpeed
       this.direction = 'left'
     }
     if (right) {
-      velocityX = PLAYER_SPEED
+      velocityX = currentSpeed
       this.direction = 'right'
     }
     if (up) {
-      velocityY = -PLAYER_SPEED
+      velocityY = -currentSpeed
       this.direction = 'up'
     }
     if (down) {
-      velocityY = PLAYER_SPEED
+      velocityY = currentSpeed
       this.direction = 'down'
     }
 
@@ -126,7 +132,7 @@ export class WorldScene extends Phaser.Scene {
 
     const body = this.player.body as Phaser.Physics.Arcade.Body
     if (velocityX !== 0 && velocityY !== 0) {
-      body.velocity.normalize().scale(PLAYER_SPEED)
+      body.velocity.normalize().scale(currentSpeed)
     }
 
     if (velocityX !== 0 || velocityY !== 0) {
@@ -140,14 +146,14 @@ export class WorldScene extends Phaser.Scene {
 
   private createPlayer() {
     this.player = this.physics.add.sprite(
-      WORLD_SPAWN.x,
-      WORLD_SPAWN.y,
+      this.spawnPoint.x,
+      this.spawnPoint.y,
       `${this.playerAnimPrefix}-idle`,
       18,
     )
     this.player.setCollideWorldBounds(true)
     this.player.setScale(PLAYER_SCALE)
-    this.player.setDepth(10)
+    this.player.setDepth(100)
 
     const body = this.player.body as Phaser.Physics.Arcade.Body
     body.setSize(8, 6)
@@ -159,69 +165,55 @@ export class WorldScene extends Phaser.Scene {
   private createWorld() {
     const blockers = this.physics.add.staticGroup()
 
-    WORLD_LAYOUT.forEach((row, rowIndex) => {
-      row.split('').forEach((token, columnIndex) => {
-        const x = columnIndex * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
-        const y = rowIndex * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
-        const floorFrame = FLOOR_FRAMES[token as keyof typeof FLOOR_FRAMES] ?? FLOOR_FRAMES['.']
+    this.add
+      .image(0, 0, 'world-map')
+      .setOrigin(0)
+      .setScale(WORLD_SCALE)
+      .setDepth(0)
 
-        this.add
-          .image(x, y, 'room-builder-tiles', floorFrame)
-          .setDisplaySize(WORLD_TILE_SIZE, WORLD_TILE_SIZE)
-          .setDepth(0)
-
-        if (token !== '#') {
+    WORLD_COLLISIONS.forEach((row, rowIndex) => {
+      row.forEach((value, columnIndex) => {
+        if (value !== COLLISION_BLOCKER) {
           return
         }
 
-        const blocker = this.add.rectangle(x, y, WORLD_TILE_SIZE, WORLD_TILE_SIZE, 0x000000, 0)
+        const blocker = this.add.rectangle(
+          columnIndex * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2,
+          rowIndex * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2,
+          WORLD_TILE_SIZE,
+          WORLD_TILE_SIZE,
+          0x000000,
+          0,
+        )
         this.physics.add.existing(blocker, true)
         blockers.add(blocker)
       })
-    })
-
-    WORLD_DECORATIONS.forEach((decoration) => {
-      const x = decoration.x * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
-      const y = decoration.y * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
-      const texture = decoration.tileset === 'interiors' ? 'interiors-tiles' : 'room-builder-tiles'
-
-      this.add
-        .image(x, y, texture, decoration.frame)
-        .setDisplaySize(WORLD_TILE_SIZE, WORLD_TILE_SIZE)
-        .setDepth(4)
-
-      if (!decoration.solid) {
-        return
-      }
-
-      const blocker = this.add.rectangle(x, y, WORLD_TILE_SIZE * 0.8, WORLD_TILE_SIZE * 0.5, 0x000000, 0)
-      this.physics.add.existing(blocker, true)
-      blockers.add(blocker)
     })
 
     return blockers
   }
 
   private createHud(visitorName: string) {
-    const helpPanel = this.add.container(0, 0).setScrollFactor(0).setDepth(20)
+    this.helpPanel = this.add.container(0, 0).setScrollFactor(0).setDepth(2000)
     const panelBackground = this.add
-      .rectangle(164, 64, 288, 72, 0x050913, 0.74)
+      .rectangle(196, 74, 360, 96, 0x050913, 0.78)
       .setStrokeStyle(1, 0x90a3ff, 0.35)
-    const welcomeText = this.add.text(44, 38, 'welcome, ' + visitorName, {
+    const welcomeText = this.add.text(40, 34, 'welcome, ' + visitorName, {
       fontFamily: 'monospace',
-      fontSize: '18px',
+      fontSize: '22px',
       color: '#edf2ff',
     })
-    const controlsText = this.add.text(44, 60, 'move: wasd/arrows   interact: e', {
+    const controlsText = this.add.text(40, 62, 'move: wasd/arrows   sprint: shift   interact: e   toggle hud: h', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#9bb1ff',
+      wordWrap: { width: 300 },
     })
 
-    helpPanel.add([panelBackground, welcomeText, controlsText])
+    this.helpPanel.add([panelBackground, welcomeText, controlsText])
 
     this.interactionPrompt = this.add
-      .text(384, 416, '', {
+      .text(384, 332, '', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#d7ddf7',
@@ -230,18 +222,18 @@ export class WorldScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(20)
+      .setDepth(2000)
       .setVisible(false)
 
     const dialogueBackground = this.add
-      .rectangle(384, 364, 700, 104, 0x050913, 0.92)
+      .rectangle(384, 308, 700, 104, 0x050913, 0.92)
       .setStrokeStyle(2, 0x90a3ff, 0.35)
-    const dialogueTitle = this.add.text(50, 324, '', {
+    const dialogueTitle = this.add.text(50, 268, '', {
       fontFamily: 'monospace',
       fontSize: '16px',
       color: '#9bb1ff',
     })
-    this.dialogueBody = this.add.text(50, 348, '', {
+    this.dialogueBody = this.add.text(50, 292, '', {
       fontFamily: 'monospace',
       fontSize: '17px',
       color: '#edf2ff',
@@ -249,7 +241,7 @@ export class WorldScene extends Phaser.Scene {
       lineSpacing: 6,
     })
     const dialogueHint = this.add
-      .text(712, 404, 'press enter to close', {
+      .text(712, 348, 'press enter to close', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#9bb1ff',
@@ -259,7 +251,7 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBox = this.add
       .container(0, 0, [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint])
       .setScrollFactor(0)
-      .setDepth(25)
+      .setDepth(2001)
       .setVisible(false)
     this.dialogueBox.setData('title', dialogueTitle)
   }
@@ -267,6 +259,9 @@ export class WorldScene extends Phaser.Scene {
   private bindInteractionInput() {
     this.input.keyboard?.on('keydown-E', () => this.handleInteraction())
     this.input.keyboard?.on('keydown-SPACE', () => this.handleInteraction())
+    this.input.keyboard?.on('keydown-H', () => {
+      this.helpPanel?.setVisible(!this.helpPanel.visible)
+    })
     this.input.keyboard?.on('keydown-ENTER', () => {
       if (!this.dialogueOpen) {
         return
@@ -282,14 +277,46 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
-    if (!this.activeZone || !this.dialogueBox || !this.dialogueBody) {
+    if (!this.activeZone) {
+      return
+    }
+
+    if (this.activeZone.id === 'projects-house') {
+      this.scene.start('interior', {
+        interiorId: 'projects',
+        returnTo: { x: 468, y: 592 },
+        playerAnimPrefix: this.playerAnimPrefix,
+      })
+      return
+    }
+
+    if (this.activeZone.id === 'about-house') {
+      this.scene.start('interior', {
+        interiorId: 'about',
+        returnTo: { x: 1402, y: 333 },
+        playerAnimPrefix: this.playerAnimPrefix,
+      })
+      return
+    }
+
+    if (this.activeZone.id === 'skills-house') {
+      this.scene.start('interior', {
+        interiorId: 'skills',
+        returnTo: { x: 2284, y: 618 },
+        playerAnimPrefix: this.playerAnimPrefix,
+      })
+      return
+    }
+
+    if (!this.dialogueBox || !this.dialogueBody) {
       return
     }
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
-
     title.setText(this.activeZone.label)
-    this.dialogueBody.setText(this.activeZone.message)
+    this.dialogueBody.setText(
+      this.activeZone.id === 'contact-dock' ? portfolioDialogues.contactSign : this.activeZone.message,
+    )
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.interactionPrompt?.setVisible(false)
@@ -300,12 +327,26 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBox?.setVisible(false)
   }
 
+  private getAnimationDirection() {
+    if (this.direction === 'left') {
+      return 'right'
+    }
+
+    if (this.direction === 'right') {
+      return 'left'
+    }
+
+    return this.direction
+  }
+
   private playIdleAnimation() {
-    this.player?.anims.play(`${this.playerAnimPrefix}-idle-${this.direction}`, true)
+    const animationDirection = this.getAnimationDirection()
+    this.player?.anims.play(`${this.playerAnimPrefix}-idle-${animationDirection}`, true)
   }
 
   private playWalkAnimation() {
-    this.player?.anims.play(`${this.playerAnimPrefix}-walk-${this.direction}`, true)
+    const animationDirection = this.getAnimationDirection()
+    this.player?.anims.play(`${this.playerAnimPrefix}-walk-${animationDirection}`, true)
   }
 
   private updateActiveZone() {
@@ -327,8 +368,6 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
-    this.interactionPrompt
-      .setText('press e: ' + this.activeZone.label)
-      .setVisible(true)
+    this.interactionPrompt.setText('press e: ' + this.activeZone.label).setVisible(true)
   }
 }
