@@ -108,18 +108,23 @@ export class CharacterSelectScene extends Phaser.Scene {
     const rightCardY = GAME_HEIGHT / 2 - 24
 
     this.cards = [
-      this.buildCard(GAME_WIDTH / 2 - 190, leftCardY, 'boy', '#7bdff6'),
-      this.buildCard(GAME_WIDTH / 2 + 190, rightCardY, 'girl', '#f7a1ff'),
+      this.buildCard(GAME_WIDTH / 2 - 190, leftCardY, 'boy', '#7bdff6', 'adam'),
+      this.buildCard(GAME_WIDTH / 2 + 190, rightCardY, 'girl', '#f7a1ff', 'amelia'),
     ]
 
     this.applySelectionState()
   }
 
-  private buildCard(x: number, y: number, key: CardKey, accent: string): CharacterCard {
+  private buildCard(
+    x: number,
+    y: number,
+    key: CardKey,
+    accent: string,
+    spritePrefix: 'adam' | 'amelia',
+  ): CharacterCard {
     const frame = this.add.rectangle(0, 0, 230, 286, 0x0f1730, 0.94)
-    const portrait = this.add
-      .image(0, -24, key === 'boy' ? 'avatar-boy' : 'avatar-girl')
-      .setScale(3.2)
+    const portrait = this.add.sprite(0, -18, `${spritePrefix}-idle`, 18).setScale(4)
+    portrait.play(`${spritePrefix}-idle-down`)
     const label = this.add
       .text(0, 96, key, {
         fontFamily: 'monospace',

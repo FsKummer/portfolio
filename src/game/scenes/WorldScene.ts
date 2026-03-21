@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
 import {
+  FLOOR_FRAMES,
+  WORLD_DECORATIONS,
   WORLD_INTERACTIONS,
   WORLD_LAYOUT,
   WORLD_SPAWN,
@@ -8,13 +10,15 @@ import {
 } from '../data/worldMap'
 import { loadVisitorProfile } from '../store/sessionStore'
 
-const PLAYER_SPEED = 240
-const WALK_FRAME_DURATION = 180
+type Direction = 'left' | 'up' | 'right' | 'down'
+
+const PLAYER_SPEED = 140
+const PLAYER_SCALE = 2.2
 
 export class WorldScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
 
-  private player?: Phaser.Physics.Arcade.Image
+  private player?: Phaser.Physics.Arcade.Sprite
 
   private movementKeys?: {
     up: Phaser.Input.Keyboard.Key
@@ -34,13 +38,9 @@ export class WorldScene extends Phaser.Scene {
 
   private dialogueOpen = false
 
-  private walkStep = false
+  private direction: Direction = 'down'
 
-  private walkElapsed = 0
-
-  private avatarBaseTexture = 'avatar-boy'
-
-  private avatarStepTexture = 'avatar-boy-step'
+  private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
 
   constructor() {
     super('world')
@@ -49,10 +49,9 @@ export class WorldScene extends Phaser.Scene {
   create() {
     const profile = loadVisitorProfile()
 
-    this.avatarBaseTexture = profile.avatar === 'girl' ? 'avatar-girl' : 'avatar-boy'
-    this.avatarStepTexture = profile.avatar === 'girl' ? 'avatar-girl-step' : 'avatar-boy-step'
+    this.playerAnimPrefix = profile.avatar === 'girl' ? 'amelia' : 'adam'
 
-    this.cameras.main.setBackgroundColor('#08101d')
+    this.cameras.main.setBackgroundColor('#0d1120')
     this.cursors = this.input.keyboard?.createCursorKeys()
     this.movementKeys = this.input.keyboard?.addKeys({
       up: 'W',
@@ -62,21 +61,9 @@ export class WorldScene extends Phaser.Scene {
       interact: 'E',
     }) as WorldScene['movementKeys']
 
-    this.player = this.physics.add.image(
-      WORLD_SPAWN.x,
-      WORLD_SPAWN.y,
-      this.avatarBaseTexture,
-    )
-    this.player.setCollideWorldBounds(true)
-    this.player.setScale(1.15)
-    this.player.setDepth(4)
-
-    const playerBody = this.player.body as Phaser.Physics.Arcade.Body
-    playerBody.setSize(28, 44)
-    playerBody.setOffset(8, 10)
-
     const blockers = this.createWorld()
-    this.physics.add.collider(this.player, blockers)
+    this.createPlayer()
+    this.physics.add.collider(this.player as Phaser.Physics.Arcade.Sprite, blockers)
 
     this.physics.world.setBounds(
       0,
@@ -91,22 +78,22 @@ export class WorldScene extends Phaser.Scene {
       WORLD_LAYOUT[0].length * WORLD_TILE_SIZE,
       WORLD_LAYOUT.length * WORLD_TILE_SIZE,
     )
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12)
-    this.cameras.main.setZoom(1.15)
+    this.cameras.main.startFollow(this.player as Phaser.Physics.Arcade.Sprite, true, 0.12, 0.12)
+    this.cameras.main.setZoom(1.8)
     this.cameras.main.roundPixels = true
 
     this.createHud(profile.visitorName || 'traveler')
     this.bindInteractionInput()
   }
 
-  update(_: number, delta: number) {
+  update() {
     if (!this.player) {
       return
     }
 
     if (this.dialogueOpen) {
       this.player.setVelocity(0, 0)
-      this.player.setTexture(this.avatarBaseTexture)
+      this.playIdleAnimation()
       return
     }
 
@@ -118,21 +105,55 @@ export class WorldScene extends Phaser.Scene {
     let velocityX = 0
     let velocityY = 0
 
-    if (left) velocityX = -PLAYER_SPEED
-    if (right) velocityX = PLAYER_SPEED
-    if (up) velocityY = -PLAYER_SPEED
-    if (down) velocityY = PLAYER_SPEED
-
-    this.player.setVelocity(velocityX, velocityY)
-    this.player.setAlpha(velocityX === 0 && velocityY === 0 ? 0.92 : 1)
-
-    if (velocityX !== 0 && velocityY !== 0) {
-      const playerBody = this.player.body as Phaser.Physics.Arcade.Body
-      playerBody.velocity.normalize().scale(PLAYER_SPEED)
+    if (left) {
+      velocityX = -PLAYER_SPEED
+      this.direction = 'left'
+    }
+    if (right) {
+      velocityX = PLAYER_SPEED
+      this.direction = 'right'
+    }
+    if (up) {
+      velocityY = -PLAYER_SPEED
+      this.direction = 'up'
+    }
+    if (down) {
+      velocityY = PLAYER_SPEED
+      this.direction = 'down'
     }
 
-    this.updateWalkVisuals(delta, velocityX !== 0 || velocityY !== 0)
+    this.player.setVelocity(velocityX, velocityY)
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body
+    if (velocityX !== 0 && velocityY !== 0) {
+      body.velocity.normalize().scale(PLAYER_SPEED)
+    }
+
+    if (velocityX !== 0 || velocityY !== 0) {
+      this.playWalkAnimation()
+    } else {
+      this.playIdleAnimation()
+    }
+
     this.updateActiveZone()
+  }
+
+  private createPlayer() {
+    this.player = this.physics.add.sprite(
+      WORLD_SPAWN.x,
+      WORLD_SPAWN.y,
+      `${this.playerAnimPrefix}-idle`,
+      18,
+    )
+    this.player.setCollideWorldBounds(true)
+    this.player.setScale(PLAYER_SCALE)
+    this.player.setDepth(10)
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body
+    body.setSize(8, 6)
+    body.setOffset(4, 24)
+
+    this.playIdleAnimation()
   }
 
   private createWorld() {
@@ -142,36 +163,40 @@ export class WorldScene extends Phaser.Scene {
       row.split('').forEach((token, columnIndex) => {
         const x = columnIndex * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
         const y = rowIndex * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
+        const floorFrame = FLOOR_FRAMES[token as keyof typeof FLOOR_FRAMES] ?? FLOOR_FRAMES['.']
 
         this.add
-          .image(x, y, this.getGroundTexture(token))
+          .image(x, y, 'room-builder-tiles', floorFrame)
           .setDisplaySize(WORLD_TILE_SIZE, WORLD_TILE_SIZE)
           .setDepth(0)
 
-        const blockerTexture = this.getBlockerTexture(token)
-
-        if (!blockerTexture) {
+        if (token !== '#') {
           return
         }
 
-        const blocker = blockers
-          .create(x, y, blockerTexture)
-          .setDisplaySize(WORLD_TILE_SIZE, WORLD_TILE_SIZE)
-          .setDepth(token === 't' ? 3 : 2)
-
-        const blockerBody = blocker.body as Phaser.Physics.Arcade.StaticBody
-
-        if (token === 't') {
-          blockerBody.setSize(WORLD_TILE_SIZE * 0.58, WORLD_TILE_SIZE * 0.4)
-          blockerBody.setOffset(WORLD_TILE_SIZE * 0.21, WORLD_TILE_SIZE * 0.52)
-        } else if (token === 'b') {
-          blockerBody.setSize(WORLD_TILE_SIZE * 0.45, WORLD_TILE_SIZE * 0.28)
-          blockerBody.setOffset(WORLD_TILE_SIZE * 0.28, WORLD_TILE_SIZE * 0.56)
-        } else {
-          blockerBody.setSize(WORLD_TILE_SIZE * 0.76, WORLD_TILE_SIZE * 0.48)
-          blockerBody.setOffset(WORLD_TILE_SIZE * 0.12, WORLD_TILE_SIZE * 0.42)
-        }
+        const blocker = this.add.rectangle(x, y, WORLD_TILE_SIZE, WORLD_TILE_SIZE, 0x000000, 0)
+        this.physics.add.existing(blocker, true)
+        blockers.add(blocker)
       })
+    })
+
+    WORLD_DECORATIONS.forEach((decoration) => {
+      const x = decoration.x * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
+      const y = decoration.y * WORLD_TILE_SIZE + WORLD_TILE_SIZE / 2
+      const texture = decoration.tileset === 'interiors' ? 'interiors-tiles' : 'room-builder-tiles'
+
+      this.add
+        .image(x, y, texture, decoration.frame)
+        .setDisplaySize(WORLD_TILE_SIZE, WORLD_TILE_SIZE)
+        .setDepth(4)
+
+      if (!decoration.solid) {
+        return
+      }
+
+      const blocker = this.add.rectangle(x, y, WORLD_TILE_SIZE * 0.8, WORLD_TILE_SIZE * 0.5, 0x000000, 0)
+      this.physics.add.existing(blocker, true)
+      blockers.add(blocker)
     })
 
     return blockers
@@ -196,12 +221,12 @@ export class WorldScene extends Phaser.Scene {
     helpPanel.add([panelBackground, welcomeText, controlsText])
 
     this.interactionPrompt = this.add
-      .text(640, 674, '', {
+      .text(384, 416, '', {
         fontFamily: 'monospace',
-        fontSize: '16px',
+        fontSize: '12px',
         color: '#d7ddf7',
         backgroundColor: '#08101d',
-        padding: { x: 12, y: 8 },
+        padding: { x: 10, y: 6 },
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
@@ -209,24 +234,24 @@ export class WorldScene extends Phaser.Scene {
       .setVisible(false)
 
     const dialogueBackground = this.add
-      .rectangle(640, 604, 1080, 152, 0x050913, 0.92)
+      .rectangle(384, 364, 700, 104, 0x050913, 0.92)
       .setStrokeStyle(2, 0x90a3ff, 0.35)
-    const dialogueTitle = this.add.text(122, 548, '', {
+    const dialogueTitle = this.add.text(50, 324, '', {
       fontFamily: 'monospace',
-      fontSize: '18px',
+      fontSize: '16px',
       color: '#9bb1ff',
     })
-    this.dialogueBody = this.add.text(122, 578, '', {
+    this.dialogueBody = this.add.text(50, 348, '', {
       fontFamily: 'monospace',
-      fontSize: '24px',
+      fontSize: '17px',
       color: '#edf2ff',
-      wordWrap: { width: 960 },
-      lineSpacing: 8,
+      wordWrap: { width: 620 },
+      lineSpacing: 6,
     })
     const dialogueHint = this.add
-      .text(1080, 648, 'press enter to close', {
+      .text(712, 404, 'press enter to close', {
         fontFamily: 'monospace',
-        fontSize: '16px',
+        fontSize: '12px',
         color: '#9bb1ff',
       })
       .setOrigin(1, 0.5)
@@ -275,28 +300,12 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBox?.setVisible(false)
   }
 
-  private updateWalkVisuals(delta: number, moving: boolean) {
-    if (!this.player) {
-      return
-    }
+  private playIdleAnimation() {
+    this.player?.anims.play(`${this.playerAnimPrefix}-idle-${this.direction}`, true)
+  }
 
-    if (!moving) {
-      this.walkElapsed = 0
-      this.walkStep = false
-      this.player.setTexture(this.avatarBaseTexture)
-      this.player.setScale(1.15)
-      return
-    }
-
-    this.walkElapsed += delta
-
-    if (this.walkElapsed >= WALK_FRAME_DURATION) {
-      this.walkElapsed = 0
-      this.walkStep = !this.walkStep
-    }
-
-    this.player.setTexture(this.walkStep ? this.avatarStepTexture : this.avatarBaseTexture)
-    this.player.setScale(this.walkStep ? 1.18 : 1.14)
+  private playWalkAnimation() {
+    this.player?.anims.play(`${this.playerAnimPrefix}-walk-${this.direction}`, true)
   }
 
   private updateActiveZone() {
@@ -321,25 +330,5 @@ export class WorldScene extends Phaser.Scene {
     this.interactionPrompt
       .setText('press e: ' + this.activeZone.label)
       .setVisible(true)
-  }
-
-  private getGroundTexture(token: string) {
-    if (token === 'p') return 'path-tile'
-    if (token === 'w') return 'water-tile'
-    if (token === 'c') return 'cliff-tile'
-    return 'grass-tile'
-  }
-
-  private getBlockerTexture(token: string) {
-    if (token === 'c') return 'cliff-tile'
-    if (token === 't') return 'tree-tile'
-    if (token === 'h') return 'house-tile'
-    if (token === 'l') return 'library-tile'
-    if (token === 'a') return 'tavern-tile'
-    if (token === 's') return 'shrine-tile'
-    if (token === 'b') return 'board-tile'
-    if (token === 'f') return 'gate-tile'
-    if (token === 'w') return 'water-tile'
-    return null
   }
 }
