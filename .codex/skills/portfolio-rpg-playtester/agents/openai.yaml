@@ -1,0 +1,4 @@
+interface:
+  display_name: "Portfolio RPG Playtester"
+  short_description: "Playtest this repo's Phaser portfolio"
+  default_prompt: "Use $portfolio-rpg-playtester to launch this portfolio RPG locally, exercise the main flow, stress collisions and movement, and report bugs plus improvement opportunities."
