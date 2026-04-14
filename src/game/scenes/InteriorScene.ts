@@ -1,4 +1,6 @@
 import Phaser from 'phaser'
+import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
+import type { HouseZone } from '../data/worldMap'
 import { INTERIORS, type InteriorDefinition, type InteriorObject } from '../data/interiors'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
@@ -6,13 +8,28 @@ type Direction = 'left' | 'up' | 'right' | 'down'
 type InteriorSceneData = {
   interiorId: InteriorDefinition['id']
   returnTo: { x: number; y: number }
+  returnZoneId: HouseZone['id']
   playerAnimPrefix: 'adam' | 'amelia'
 }
+
+type TileBlockerConfig =
+  | {
+      width: number
+      height: number
+      offsetX: number
+      offsetY: number
+    }
+  | null
 
 const TILE_SIZE = 48
 const PLAYER_SPEED = 150
 const PLAYER_RUN_SPEED = 240
-const PLAYER_SCALE = 3
+const DEFAULT_INTERIOR_CAMERA_ZOOM = 1.6
+const DEFAULT_INTERIOR_CHARACTER_SCALE = 2.4
+const INTERACTION_PADDING = 6
+const INTERACTION_REACH = 22
+const DIALOGUE_PANEL_WIDTH = 1080
+const DIALOGUE_PANEL_HEIGHT = 280
 
 export class InteriorScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
@@ -34,8 +51,10 @@ export class InteriorScene extends Phaser.Scene {
   private dialogueOpen = false
   private direction: Direction = 'down'
   private returnTo = { x: 0, y: 0 }
+  private returnZoneId!: HouseZone['id']
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
   private interior!: InteriorDefinition
+  private transitioning = false
 
   constructor() {
     super('interior')
@@ -44,11 +63,13 @@ export class InteriorScene extends Phaser.Scene {
   init(data: InteriorSceneData) {
     this.interior = INTERIORS[data.interiorId]
     this.returnTo = data.returnTo
+    this.returnZoneId = data.returnZoneId
     this.playerAnimPrefix = data.playerAnimPrefix
     this.interactives = []
     this.activeInteractive = undefined
     this.dialogueOpen = false
     this.direction = 'down'
+    this.transitioning = false
   }
 
   create() {
@@ -73,7 +94,7 @@ export class InteriorScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, width, height)
     this.cameras.main.setBounds(0, 0, width, height)
     this.cameras.main.startFollow(this.player as Phaser.Physics.Arcade.Sprite, true, 0.12, 0.12)
-    this.cameras.main.setZoom(1.6)
+    this.cameras.main.setZoom(this.getCameraZoom())
     this.cameras.main.roundPixels = true
 
     this.createUi()
@@ -82,6 +103,12 @@ export class InteriorScene extends Phaser.Scene {
 
   update() {
     if (!this.player) {
+      return
+    }
+
+    if (this.transitioning) {
+      this.player.setVelocity(0, 0)
+      this.playIdleAnimation()
       return
     }
 
@@ -96,7 +123,7 @@ export class InteriorScene extends Phaser.Scene {
     const up = this.cursors?.up.isDown || this.movementKeys?.up.isDown
     const down = this.cursors?.down.isDown || this.movementKeys?.down.isDown
     const sprinting = Boolean(this.movementKeys?.sprint.isDown)
-    const currentSpeed = sprinting ? PLAYER_RUN_SPEED : PLAYER_SPEED
+    const currentSpeed = sprinting ? this.getRunSpeed() : this.getWalkSpeed()
 
     let velocityX = 0
     let velocityY = 0
@@ -131,7 +158,12 @@ export class InteriorScene extends Phaser.Scene {
       this.playIdleAnimation()
     }
 
+    this.syncPlayerDepth()
     this.updateInteractive()
+
+    if (this.activeInteractive?.kind === 'exit' && this.isPushingIntoExitDoor()) {
+      this.leaveInterior()
+    }
   }
 
   private buildRoom() {
@@ -148,7 +180,9 @@ export class InteriorScene extends Phaser.Scene {
 
     const mapData = JSON.parse(rawJson) as {
       layers?: Array<{ data?: number[]; name?: string; type?: string; visible?: boolean }>
+      width?: number
     }
+    const mapWidth = mapData.width ?? this.interior.width
     const blockedCells = new Set<string>()
     const exitCells = new Set(this.interior.objects.filter((object) => object.kind === 'exit').map((object) => `${object.x},${object.y}`))
 
@@ -157,14 +191,16 @@ export class InteriorScene extends Phaser.Scene {
         return
       }
 
+      const layerName = layer.name
+
       layer.data?.forEach((gid, index) => {
         const tileId = gid & 0x1fffffff
-        if (tileId === 0) {
+        if (!this.shouldCreateBlockerForTile(layerName, tileId)) {
           return
         }
 
-        const x = index % this.interior.width
-        const y = Math.floor(index / this.interior.width)
+        const x = index % mapWidth
+        const y = Math.floor(index / mapWidth)
         const cellKey = `${x},${y}`
 
         if (exitCells.has(cellKey) || blockedCells.has(cellKey)) {
@@ -172,12 +208,17 @@ export class InteriorScene extends Phaser.Scene {
         }
 
         blockedCells.add(cellKey)
+        const blockerConfig = this.getTileBlockerConfig()
+
+        if (!blockerConfig) {
+          return
+        }
 
         const blocker = this.add.rectangle(
-          x * TILE_SIZE + TILE_SIZE / 2,
-          y * TILE_SIZE + TILE_SIZE / 2,
-          TILE_SIZE * 0.9,
-          TILE_SIZE * 0.9,
+          x * TILE_SIZE + TILE_SIZE * blockerConfig.offsetX,
+          y * TILE_SIZE + TILE_SIZE * blockerConfig.offsetY,
+          TILE_SIZE * blockerConfig.width,
+          TILE_SIZE * blockerConfig.height,
           0x000000,
           0,
         )
@@ -193,20 +234,43 @@ export class InteriorScene extends Phaser.Scene {
 
     if (object.kind === 'npc' && object.sprite) {
       const npc = this.add.sprite(worldX, worldY + 8, object.sprite, 18)
-      npc.setScale(2.4)
+      npc.setScale(this.getCharacterScale())
       npc.setDepth(worldY + 12)
     }
 
     if (object.solid) {
-      const blocker = this.add.rectangle(worldX, worldY + 6, TILE_SIZE * 0.78, TILE_SIZE * 0.45, 0x000000, 0)
+      const isNpc = object.kind === 'npc'
+      const blocker = this.add.rectangle(
+        worldX,
+        worldY + (isNpc ? 4 : 6),
+        TILE_SIZE * (isNpc ? 0.42 : 0.7),
+        TILE_SIZE * (isNpc ? 0.22 : 0.4),
+        0x000000,
+        0,
+      )
       this.physics.add.existing(blocker, true)
       this.blockers?.add(blocker)
     }
 
     if (object.kind === 'npc' || object.kind === 'sign' || object.kind === 'exit') {
+      const area =
+        object.kind === 'exit'
+          ? new Phaser.Geom.Rectangle(
+              worldX - TILE_SIZE * 0.4,
+              worldY + TILE_SIZE * 0.1,
+              TILE_SIZE * 0.8,
+              TILE_SIZE * 0.32,
+            )
+          : new Phaser.Geom.Rectangle(
+              worldX - TILE_SIZE * 0.45,
+              worldY - TILE_SIZE * 0.45,
+              TILE_SIZE * 0.9,
+              TILE_SIZE * 0.9,
+            )
+
       this.interactives.push({
         ...object,
-        area: new Phaser.Geom.Rectangle(worldX - TILE_SIZE * 0.45, worldY - TILE_SIZE * 0.45, TILE_SIZE * 0.9, TILE_SIZE * 0.9),
+        area,
       })
     }
   }
@@ -219,47 +283,64 @@ export class InteriorScene extends Phaser.Scene {
       18,
     )
     this.player.setCollideWorldBounds(true)
-    this.player.setScale(PLAYER_SCALE)
+    this.player.setScale(this.getCharacterScale())
     const body = this.player.body as Phaser.Physics.Arcade.Body
     body.setSize(8, 6)
     body.setOffset(4, 24)
+    this.syncPlayerDepth()
     this.playIdleAnimation()
   }
 
   private createUi() {
     this.prompt = this.add
-      .text(384, 408, '', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 92, '', {
         fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#d7ddf7',
-        backgroundColor: '#08101d',
-        padding: { x: 10, y: 6 },
+        fontSize: '18px',
+        color: '#f4f7ff',
+        backgroundColor: '#04070f',
+        padding: { x: 16, y: 10 },
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(2000)
       .setVisible(false)
+    this.prompt.setStroke('#10192d', 4)
+    this.prompt.setShadow(0, 2, '#01040b', 1, false, true)
 
-    const dialogueBackground = this.add.rectangle(384, 344, 700, 120, 0x050913, 0.94).setStrokeStyle(2, 0x90a3ff, 0.35)
-    const dialogueTitle = this.add.text(50, 294, this.interior.title, {
+    const panelLeft = -DIALOGUE_PANEL_WIDTH / 2 + 40
+    const panelTop = -DIALOGUE_PANEL_HEIGHT / 2 + 26
+    const dialogueBackground = this.add
+      .rectangle(0, 0, DIALOGUE_PANEL_WIDTH, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.995)
+      .setStrokeStyle(4, 0xa4b6ff, 0.9)
+    const dialogueTitle = this.add.text(panelLeft, panelTop, this.interior.title, {
       fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#9bb1ff',
+      fontSize: '24px',
+      color: '#d7e0ff',
     })
-    this.dialogueBody = this.add.text(50, 320, '', {
-      fontFamily: 'monospace',
-      fontSize: '17px',
-      color: '#edf2ff',
-      wordWrap: { width: 620 },
-      lineSpacing: 6,
-    })
-    const dialogueHint = this.add.text(712, 388, 'press enter to close', {
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#9bb1ff',
-    }).setOrigin(1, 0.5)
+    dialogueTitle.setStroke('#04070f', 4)
+    dialogueTitle.setShadow(0, 2, '#01040b', 1, false, true)
 
-    this.dialogueBox = this.add.container(0, 0, [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint])
+    this.dialogueBody = this.add.text(panelLeft, panelTop + 46, '', {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#f6f8ff',
+      wordWrap: { width: DIALOGUE_PANEL_WIDTH - 128 },
+      lineSpacing: 12,
+    })
+    this.dialogueBody.setStroke('#04070f', 5)
+    this.dialogueBody.setShadow(0, 2, '#01040b', 1, false, true)
+
+    const dialogueHint = this.add
+      .text(DIALOGUE_PANEL_WIDTH / 2 - 34, DIALOGUE_PANEL_HEIGHT / 2 - 22, 'enter closes', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#d7e0ff',
+      })
+      .setOrigin(1, 1)
+    dialogueHint.setStroke('#04070f', 3)
+
+    this.dialogueBox = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT - 210, [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint])
       .setScrollFactor(0)
       .setDepth(2001)
       .setVisible(false)
@@ -282,18 +363,13 @@ export class InteriorScene extends Phaser.Scene {
       return
     }
 
-    if (this.activeInteractive.kind === 'exit') {
-      this.scene.start('world', { spawn: this.returnTo, suppressHouseEntryMs: 900 })
-      return
-    }
-
     if (!this.dialogueBox || !this.dialogueBody) {
       return
     }
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     title.setText(this.activeInteractive.label || this.interior.title)
-    this.dialogueBody.setText(this.activeInteractive.message || '')
+    this.dialogueBody.setText(this.formatDialogue(this.activeInteractive.message || ''))
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.prompt?.setVisible(false)
@@ -304,24 +380,47 @@ export class InteriorScene extends Phaser.Scene {
     this.dialogueBox?.setVisible(false)
   }
 
+  private leaveInterior() {
+    if (this.transitioning) {
+      return
+    }
+
+    this.transitioning = true
+    this.player?.setVelocity(0, 0)
+    this.cameras.main.fadeOut(120, 0, 0, 0)
+    this.time.delayedCall(130, () => {
+      this.scene.start('world', { spawn: this.returnTo, suppressHouseEntryZoneId: this.returnZoneId })
+    })
+  }
+
   private updateInteractive() {
     if (!this.player || !this.prompt) {
       return
     }
 
-    const bounds = this.player.getBounds()
-    const centerX = bounds.centerX
-    const centerY = bounds.centerY
+    const bodyBounds = this.getBodyBounds()
+    const interactionBounds = this.getInteractionBounds()
+    if (!bodyBounds || !interactionBounds) {
+      this.prompt.setVisible(false)
+      return
+    }
 
-    this.activeInteractive = this.interactives.find((interactive) => interactive.area.contains(centerX, centerY))
+    this.activeInteractive = this.interactives.find((interactive) => {
+      const probeBounds = interactive.kind === 'exit' ? bodyBounds : interactionBounds
+      return Phaser.Geom.Intersects.RectangleToRectangle(probeBounds, interactive.area)
+    })
 
     if (!this.activeInteractive) {
       this.prompt.setVisible(false)
       return
     }
 
-    const label = this.activeInteractive.kind === 'exit' ? 'leave house' : this.activeInteractive.label || 'inspect'
-    this.prompt.setText('press e: ' + label).setVisible(true)
+    if (this.activeInteractive.kind === 'exit') {
+      this.prompt.setVisible(false)
+      return
+    }
+
+    this.prompt.setText('press e: ' + (this.activeInteractive.label || 'inspect')).setVisible(true)
   }
 
   private getAnimationDirection() {
@@ -336,5 +435,125 @@ export class InteriorScene extends Phaser.Scene {
 
   private playWalkAnimation() {
     this.player?.anims.play(`${this.playerAnimPrefix}-walk-${this.getAnimationDirection()}`, true)
+  }
+
+  private getBodyBounds() {
+    if (!this.player) {
+      return
+    }
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body | null
+    if (!body) {
+      return
+    }
+
+    return new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height)
+  }
+
+  private getInteractionBounds() {
+    const bodyBounds = this.getBodyBounds()
+    if (!bodyBounds) {
+      return
+    }
+
+    const bounds = new Phaser.Geom.Rectangle(
+      bodyBounds.x - INTERACTION_PADDING,
+      bodyBounds.y - INTERACTION_PADDING,
+      bodyBounds.width + INTERACTION_PADDING * 2,
+      bodyBounds.height + INTERACTION_PADDING * 2,
+    )
+
+    if (this.direction === 'up') {
+      bounds.y -= INTERACTION_REACH
+      bounds.height += INTERACTION_REACH
+    }
+
+    if (this.direction === 'down') {
+      bounds.height += INTERACTION_REACH
+    }
+
+    if (this.direction === 'left') {
+      bounds.x -= INTERACTION_REACH
+      bounds.width += INTERACTION_REACH
+    }
+
+    if (this.direction === 'right') {
+      bounds.width += INTERACTION_REACH
+    }
+
+    return bounds
+  }
+
+  private isPushingIntoExitDoor() {
+    if (!this.player) {
+      return false
+    }
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body | null
+    if (!body) {
+      return false
+    }
+
+    return this.direction === 'down' && body.velocity.y >= 0
+  }
+
+  private getTileBlockerConfig(): TileBlockerConfig {
+    const defaultConfig = {
+      width: 0.9,
+      height: 0.9,
+      offsetX: 0.5,
+      offsetY: 0.5,
+    }
+
+    return defaultConfig
+  }
+
+  private shouldCreateBlockerForTile(layerName: string, tileId: number) {
+    if (tileId === 0) {
+      return false
+    }
+
+    const collisionLayer = this.interior.collisionLayer
+    if (!collisionLayer || collisionLayer.name !== layerName) {
+      return true
+    }
+
+    if (collisionLayer.emptyTileIds?.includes(tileId)) {
+      return false
+    }
+
+    if (collisionLayer.blockedTileIds && !collisionLayer.blockedTileIds.includes(tileId)) {
+      return false
+    }
+
+    return true
+  }
+
+  private formatDialogue(message: string) {
+    return message
+      .split('\n')
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  private syncPlayerDepth() {
+    this.player?.setDepth((this.player?.y ?? 0) + 12)
+  }
+
+  private getCharacterScale() {
+    return this.interior.characterScale ?? DEFAULT_INTERIOR_CHARACTER_SCALE
+  }
+
+  private getCameraZoom() {
+    return this.interior.cameraZoom ?? DEFAULT_INTERIOR_CAMERA_ZOOM
+  }
+
+  private getWalkSpeed() {
+    return this.interior.walkSpeed ?? PLAYER_SPEED
+  }
+
+  private getRunSpeed() {
+    return this.interior.runSpeed ?? PLAYER_RUN_SPEED
   }
 }

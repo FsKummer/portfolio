@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import {
   COLLISION_BLOCKER,
+  type HouseZone,
   WORLD_COLLISIONS,
   WORLD_HEIGHT,
   WORLD_INTERACTIONS,
@@ -20,7 +21,7 @@ type WorldSceneData = {
     x: number
     y: number
   }
-  suppressHouseEntryMs?: number
+  suppressHouseEntryZoneId?: HouseZone['id']
 }
 
 const PLAYER_SPEED = 180
@@ -49,7 +50,7 @@ export class WorldScene extends Phaser.Scene {
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
   private spawnPoint = WORLD_SPAWN
   private transitioning = false
-  private houseEntrySuppressedUntil = 0
+  private suppressedHouseEntryZoneId?: HouseZone['id']
 
   constructor() {
     super('world')
@@ -61,7 +62,7 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueOpen = false
     this.direction = 'down'
     this.transitioning = false
-    this.houseEntrySuppressedUntil = this.time.now + (data.suppressHouseEntryMs ?? 0)
+    this.suppressedHouseEntryZoneId = data.suppressHouseEntryZoneId
   }
 
   create() {
@@ -96,6 +97,12 @@ export class WorldScene extends Phaser.Scene {
 
   update() {
     if (!this.player) {
+      return
+    }
+
+    if (this.transitioning) {
+      this.player.setVelocity(0, 0)
+      this.playIdleAnimation()
       return
     }
 
@@ -287,9 +294,6 @@ export class WorldScene extends Phaser.Scene {
     }
 
     if (this.isHouseZone(this.activeZone)) {
-      if (this.time.now >= this.houseEntrySuppressedUntil) {
-        this.enterHouse(this.activeZone)
-      }
       return
     }
 
@@ -299,9 +303,7 @@ export class WorldScene extends Phaser.Scene {
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     title.setText(this.activeZone.label)
-    this.dialogueBody.setText(
-      this.activeZone.id === 'contact-dock' ? portfolioDialogues.contactSign : this.activeZone.message,
-    )
+    this.dialogueBody.setText(portfolioDialogues.contactSign)
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.interactionPrompt?.setVisible(false)
@@ -312,40 +314,12 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBox?.setVisible(false)
   }
 
-  private isHouseZone(zone: InteractionZone) {
-    return zone.id === 'projects-house' || zone.id === 'about-house' || zone.id === 'skills-house'
+  private isHouseZone(zone: InteractionZone): zone is HouseZone {
+    return zone.trigger === 'touch'
   }
 
-  private enterHouse(zone: InteractionZone) {
+  private enterHouse(zone: HouseZone) {
     if (this.transitioning) {
-      return
-    }
-
-    let sceneData:
-      | { interiorId: 'projects' | 'about' | 'skills'; returnTo: { x: number; y: number }; playerAnimPrefix: 'adam' | 'amelia' }
-      | undefined
-
-    if (zone.id === 'projects-house') {
-      sceneData = {
-        interiorId: 'projects',
-        returnTo: { x: 420, y: 860 },
-        playerAnimPrefix: this.playerAnimPrefix,
-      }
-    } else if (zone.id === 'about-house') {
-      sceneData = {
-        interiorId: 'about',
-        returnTo: { x: 1464, y: 420 },
-        playerAnimPrefix: this.playerAnimPrefix,
-      }
-    } else if (zone.id === 'skills-house') {
-      sceneData = {
-        interiorId: 'skills',
-        returnTo: { x: 2228, y: 860 },
-        playerAnimPrefix: this.playerAnimPrefix,
-      }
-    }
-
-    if (!sceneData) {
       return
     }
 
@@ -353,7 +327,12 @@ export class WorldScene extends Phaser.Scene {
     this.player?.setVelocity(0, 0)
     this.cameras.main.fadeOut(120, 0, 0, 0)
     this.time.delayedCall(130, () => {
-      this.scene.start('interior', sceneData)
+      this.scene.start('interior', {
+        interiorId: zone.interiorId,
+        returnTo: zone.returnTo,
+        returnZoneId: zone.id,
+        playerAnimPrefix: this.playerAnimPrefix,
+      })
     })
   }
 
@@ -384,24 +363,66 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
-    const playerBounds = this.player.getBounds()
+    const interactionBounds = this.getInteractionBounds()
+    if (!interactionBounds) {
+      this.interactionPrompt.setVisible(false)
+      return
+    }
 
     this.activeZone = WORLD_INTERACTIONS.find((zone) => {
       const zoneRect = new Phaser.Geom.Rectangle(zone.x, zone.y, zone.width, zone.height)
-      return Phaser.Geom.Intersects.RectangleToRectangle(playerBounds, zoneRect)
+      return Phaser.Geom.Intersects.RectangleToRectangle(interactionBounds, zoneRect)
     })
 
     if (!this.activeZone) {
+      this.suppressedHouseEntryZoneId = undefined
       this.interactionPrompt.setVisible(false)
       return
     }
 
     if (this.isHouseZone(this.activeZone)) {
-      const label = 'enter ' + this.activeZone.label.toLowerCase()
-      this.interactionPrompt.setText('press e: ' + label).setVisible(true)
+      this.interactionPrompt.setVisible(false)
+
+      if (this.activeZone.id === this.suppressedHouseEntryZoneId) {
+        return
+      }
+
+      if (!this.isPushingIntoHouseDoor()) {
+        return
+      }
+
+      this.suppressedHouseEntryZoneId = undefined
+      this.enterHouse(this.activeZone)
       return
     }
 
+    this.suppressedHouseEntryZoneId = undefined
     this.interactionPrompt.setText('press e: ' + this.activeZone.label).setVisible(true)
+  }
+
+  private getInteractionBounds() {
+    if (!this.player) {
+      return
+    }
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body | null
+    if (!body) {
+      return
+    }
+
+    return new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height)
+  }
+
+  private isPushingIntoHouseDoor() {
+    if (!this.player) {
+      return false
+    }
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body | null
+    if (!body) {
+      return false
+    }
+
+    return this.direction === 'up' && body.velocity.y <= 0
   }
 }

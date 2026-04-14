@@ -12,9 +12,18 @@ export type InteriorObject = {
 }
 
 export type InteriorDefinition = {
+  cameraZoom?: number
+  characterScale?: number
+  collisionLayer?: {
+    blockedTileIds?: number[]
+    emptyTileIds?: number[]
+    name: string
+  }
   id: 'projects' | 'about' | 'skills'
   title: string
+  runSpeed?: number
   spawn: { x: number; y: number }
+  walkSpeed?: number
   width: number
   height: number
   imageKey: string
@@ -23,8 +32,10 @@ export type InteriorDefinition = {
   objects: InteriorObject[]
 }
 
-const MAP_WIDTH = 15
-const MAP_HEIGHT = 15
+const STANDARD_MAP_WIDTH = 15
+const STANDARD_MAP_HEIGHT = 15
+const SCHOOL_MAP_WIDTH = 30
+const SCHOOL_MAP_HEIGHT = 30
 const SHARED_EXITS: InteriorObject[] = [
   { kind: 'exit', x: 7, y: 14 },
   { kind: 'exit', x: 8, y: 14 },
@@ -35,8 +46,8 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
     id: 'projects',
     title: 'Projects House',
     spawn: { x: 7, y: 13 },
-    width: MAP_WIDTH,
-    height: MAP_HEIGHT,
+    width: STANDARD_MAP_WIDTH,
+    height: STANDARD_MAP_HEIGHT,
     imageKey: 'skills-interior-map',
     jsonKey: 'skills-interior-json',
     blockingLayers: ['walls', 'stuff'],
@@ -64,39 +75,51 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
   about: {
     id: 'about',
     title: 'Education House',
-    spawn: { x: 7, y: 13 },
-    width: MAP_WIDTH,
-    height: MAP_HEIGHT,
-    imageKey: 'education-interior-map',
-    jsonKey: 'education-interior-json',
-    blockingLayers: ['Wall 1', 'border', 'chairs', 'teacher stuff', 'teacher stuff 2'],
+    cameraZoom: 0.78,
+    characterScale: 5.6,
+    walkSpeed: 250,
+    runSpeed: 400,
+    spawn: { x: 14, y: 27 },
+    width: SCHOOL_MAP_WIDTH,
+    height: SCHOOL_MAP_HEIGHT,
+    imageKey: 'school-house-map',
+    jsonKey: 'school-house-json',
+    blockingLayers: ['Collision layer'],
+    collisionLayer: {
+      name: 'Collision layer',
+      emptyTileIds: [282],
+      blockedTileIds: [7315],
+    },
     objects: [
       {
         kind: 'npc',
         sprite: 'bob-idle',
         label: 'House Guide',
         message: portfolioDialogues.aboutNpc,
-        x: 11,
-        y: 5,
+        x: 22,
+        y: 12,
         solid: true,
       },
       {
         kind: 'sign',
         label: 'Biography Note',
         message: portfolioDialogues.aboutSign,
-        x: 3,
-        y: 11,
-        solid: true,
+        x: 24,
+        y: 4,
+        solid: false,
       },
-      ...SHARED_EXITS,
+      { kind: 'exit', x: 13, y: 29 },
+      { kind: 'exit', x: 14, y: 29 },
+      { kind: 'exit', x: 15, y: 29 },
+      { kind: 'exit', x: 16, y: 29 },
     ],
   },
   skills: {
     id: 'skills',
     title: 'Skills House',
     spawn: { x: 7, y: 13 },
-    width: MAP_WIDTH,
-    height: MAP_HEIGHT,
+    width: STANDARD_MAP_WIDTH,
+    height: STANDARD_MAP_HEIGHT,
     imageKey: 'skills-interior-map',
     jsonKey: 'skills-interior-json',
     blockingLayers: ['walls', 'stuff'],

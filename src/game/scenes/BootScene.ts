@@ -42,6 +42,8 @@ export class BootScene extends Phaser.Scene {
     this.load.text('skills-interior-json', '/assets/maps/skills-interior.json')
     this.load.image('education-interior-map', '/assets/maps/education-interior.png')
     this.load.text('education-interior-json', '/assets/maps/education-interior.json')
+    this.load.image('school-house-map', '/assets/maps/school-house.png')
+    this.load.text('school-house-json', '/assets/maps/school-house.json')
     this.load.spritesheet('room-builder-tiles', '/assets/tilesets/room_builder_free_32x32.png', {
       frameWidth: 32,
       frameHeight: 32,

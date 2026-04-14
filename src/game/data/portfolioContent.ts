@@ -4,9 +4,9 @@ export const portfolioDialogues = {
   projectsSign:
     'Featured projects will live here. This room is reserved for playable case studies, selected builds, and deeper technical breakdowns.',
   aboutNpc:
-    'Felipe is a software engineer who cares about memorable interfaces, practical architecture, and products that feel intentional from the first interaction.',
+    'Felipe is a software engineer focused on memorable interfaces and practical architecture.\nHe builds products that feel intentional from the first interaction.',
   aboutSign:
-    'This room is the biography layer: background, philosophy, and the personal context behind the work.',
+    "This room covers Felipe's background, philosophy, and the context behind the work.",
   skillsNpc:
     'Core strengths: TypeScript, React, Rails, product-minded frontend engineering, interaction design, and turning rough ideas into working software.',
   skillsSign:

@@ -1,3 +1,5 @@
+import type { InteriorDefinition } from './interiors'
+
 export const WORLD_SCALE = 4
 export const WORLD_TILE_SIZE = 12 * WORLD_SCALE
 export const WORLD_WIDTH = 840 * WORLD_SCALE
@@ -10,15 +12,33 @@ export const WORLD_SPAWN = {
   y: 420,
 }
 
-export type InteractionZone = {
-  id: 'projects-house' | 'about-house' | 'skills-house' | 'contact-dock'
+export type HouseZone = {
+  id: 'projects-house' | 'about-house' | 'skills-house'
   label: string
+  trigger: 'touch'
+  interiorId: InteriorDefinition['id']
+  returnTo: {
+    x: number
+    y: number
+  }
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type DialogueZone = {
+  id: 'contact-dock'
+  label: string
+  trigger: 'interact'
   message: string
   x: number
   y: number
   width: number
   height: number
 }
+
+export type InteractionZone = HouseZone | DialogueZone
 
 export const WORLD_COLLISIONS = [
   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -57,33 +77,40 @@ export const WORLD_INTERACTIONS: InteractionZone[] = [
   {
     id: 'projects-house',
     label: 'Projects House',
-    message: 'Enter the projects house.',
-    x: 76 * WORLD_SCALE,
-    y: 156 * WORLD_SCALE,
-    width: 58 * WORLD_SCALE,
-    height: 42 * WORLD_SCALE,
+    trigger: 'touch',
+    interiorId: 'projects',
+    returnTo: { x: 420, y: 860 },
+    x: 348,
+    y: 760,
+    width: 144,
+    height: 112,
   },
   {
     id: 'about-house',
     label: 'About House',
-    message: 'Enter the about house.',
-    x: 345 * WORLD_SCALE,
-    y: 48 * WORLD_SCALE,
-    width: 42 * WORLD_SCALE,
-    height: 32 * WORLD_SCALE,
+    trigger: 'touch',
+    interiorId: 'about',
+    returnTo: { x: 1464, y: 420 },
+    x: 1392,
+    y: 288,
+    width: 144,
+    height: 112,
   },
   {
     id: 'skills-house',
     label: 'Skills House',
-    message: 'Enter the skills house.',
-    x: 537 * WORLD_SCALE,
-    y: 159 * WORLD_SCALE,
-    width: 42 * WORLD_SCALE,
-    height: 34 * WORLD_SCALE,
+    trigger: 'touch',
+    interiorId: 'skills',
+    returnTo: { x: 2228, y: 860 },
+    x: 2160,
+    y: 736,
+    width: 144,
+    height: 120,
   },
   {
     id: 'contact-dock',
     label: 'Contact Dock',
+    trigger: 'interact',
     message: 'The dock is the contact point. Later this will open links, contact methods, and a message flow for visitors.',
     x: 436 * WORLD_SCALE,
     y: 34 * WORLD_SCALE,
