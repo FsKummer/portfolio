@@ -98,7 +98,7 @@ export const WORLD_INTERACTIONS: InteractionZone[] = [
   },
   {
     id: 'skills-house',
-    label: 'Skills House',
+    label: 'Gym House',
     trigger: 'touch',
     interiorId: 'skills',
     returnTo: { x: 2228, y: 860 },

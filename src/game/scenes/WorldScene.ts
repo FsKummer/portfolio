@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import {
   COLLISION_BLOCKER,
   type HouseZone,
@@ -208,56 +209,72 @@ export class WorldScene extends Phaser.Scene {
   private createHud(visitorName: string) {
     this.helpPanel = this.add.container(0, 0).setScrollFactor(0).setDepth(2000)
     const panelBackground = this.add
-      .rectangle(196, 74, 360, 96, 0x050913, 0.78)
+      .rectangle(214, 82, 396, 116, 0x050913, 0.78)
       .setStrokeStyle(1, 0x90a3ff, 0.35)
-    const welcomeText = this.add.text(40, 34, 'welcome, ' + visitorName, {
-      fontFamily: 'monospace',
-      fontSize: '22px',
+    const welcomeText = this.add
+      .text(40, 34, 'welcome, ' + visitorName, {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '26px',
+      fontStyle: '700',
       color: '#edf2ff',
     })
-    const controlsText = this.add.text(40, 62, 'move: wasd/arrows   sprint: shift   interact: e   toggle hud: h', {
-      fontFamily: 'monospace',
-      fontSize: '14px',
+      .setLetterSpacing(0.8)
+    const controlsText = this.add
+      .text(40, 72, 'move: wasd/arrows   sprint: shift   interact: e   toggle hud: h', {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '16px',
+      fontStyle: '700',
       color: '#9bb1ff',
-      wordWrap: { width: 300 },
+      wordWrap: { width: 332 },
     })
+      .setLetterSpacing(0.5)
 
     this.helpPanel.add([panelBackground, welcomeText, controlsText])
 
     this.interactionPrompt = this.add
       .text(384, 332, '', {
-        fontFamily: 'monospace',
-        fontSize: '12px',
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '16px',
+        fontStyle: '700',
         color: '#d7ddf7',
         backgroundColor: '#08101d',
-        padding: { x: 10, y: 6 },
+        padding: { x: 14, y: 8 },
       })
+      .setLetterSpacing(0.6)
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(2000)
       .setVisible(false)
 
     const dialogueBackground = this.add
-      .rectangle(384, 308, 700, 104, 0x050913, 0.92)
+      .rectangle(384, 314, 760, 136, 0x050913, 0.92)
       .setStrokeStyle(2, 0x90a3ff, 0.35)
-    const dialogueTitle = this.add.text(50, 268, '', {
-      fontFamily: 'monospace',
-      fontSize: '16px',
+    const dialogueTitle = this.add
+      .text(54, 256, '', {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '22px',
+      fontStyle: '700',
       color: '#9bb1ff',
     })
-    this.dialogueBody = this.add.text(50, 292, '', {
-      fontFamily: 'monospace',
-      fontSize: '17px',
+      .setLetterSpacing(0.7)
+    this.dialogueBody = this.add
+      .text(54, 292, '', {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '24px',
+      fontStyle: '700',
       color: '#edf2ff',
-      wordWrap: { width: 620 },
-      lineSpacing: 6,
+      wordWrap: { width: 660 },
+      lineSpacing: 12,
     })
+      .setLetterSpacing(0.7)
     const dialogueHint = this.add
-      .text(712, 348, 'press enter to close', {
-        fontFamily: 'monospace',
-        fontSize: '12px',
+      .text(742, 364, 'press enter to close', {
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '14px',
+        fontStyle: '700',
         color: '#9bb1ff',
       })
+      .setLetterSpacing(0.5)
       .setOrigin(1, 0.5)
 
     this.dialogueBox = this.add

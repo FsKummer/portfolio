@@ -36,6 +36,8 @@ const STANDARD_MAP_WIDTH = 15
 const STANDARD_MAP_HEIGHT = 15
 const SCHOOL_MAP_WIDTH = 30
 const SCHOOL_MAP_HEIGHT = 30
+const GYM_MAP_WIDTH = 20
+const GYM_MAP_HEIGHT = 16
 const SHARED_EXITS: InteriorObject[] = [
   { kind: 'exit', x: 7, y: 14 },
   { kind: 'exit', x: 8, y: 14 },
@@ -116,32 +118,42 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
   },
   skills: {
     id: 'skills',
-    title: 'Skills House',
-    spawn: { x: 7, y: 13 },
-    width: STANDARD_MAP_WIDTH,
-    height: STANDARD_MAP_HEIGHT,
-    imageKey: 'skills-interior-map',
-    jsonKey: 'skills-interior-json',
-    blockingLayers: ['walls', 'stuff'],
+    title: 'Gym House',
+    cameraZoom: 1.15,
+    characterScale: 3.4,
+    walkSpeed: 200,
+    runSpeed: 320,
+    spawn: { x: 12, y: 13 },
+    width: GYM_MAP_WIDTH,
+    height: GYM_MAP_HEIGHT,
+    imageKey: 'gym-map',
+    jsonKey: 'gym-json',
+    blockingLayers: ['collision'],
+    collisionLayer: {
+      name: 'collision',
+      blockedTileIds: [366],
+    },
     objects: [
       {
         kind: 'npc',
         sprite: 'alex-idle',
-        label: 'Stack Keeper',
+        label: 'Workout Buddy',
         message: portfolioDialogues.skillsNpc,
-        x: 12,
-        y: 4,
+        x: 15,
+        y: 7,
         solid: true,
       },
       {
         kind: 'sign',
-        label: 'Skills Index',
+        label: 'Hobbies Note',
         message: portfolioDialogues.skillsSign,
-        x: 13,
-        y: 10,
-        solid: true,
+        x: 6,
+        y: 6,
+        solid: false,
       },
-      ...SHARED_EXITS,
+      { kind: 'exit', x: 11, y: 15 },
+      { kind: 'exit', x: 12, y: 15 },
+      { kind: 'exit', x: 13, y: 15 },
     ],
   },
 }

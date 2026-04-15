@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
+import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import type { HouseZone } from '../data/worldMap'
 import { INTERIORS, type InteriorDefinition, type InteriorObject } from '../data/interiors'
 
@@ -28,8 +29,21 @@ const DEFAULT_INTERIOR_CAMERA_ZOOM = 1.6
 const DEFAULT_INTERIOR_CHARACTER_SCALE = 2.4
 const INTERACTION_PADDING = 6
 const INTERACTION_REACH = 22
-const DIALOGUE_PANEL_WIDTH = 1080
-const DIALOGUE_PANEL_HEIGHT = 280
+const DIALOGUE_PANEL_WIDTH = 1020
+const DIALOGUE_PANEL_HEIGHT = 272
+const DIALOGUE_PANEL_BOTTOM_MARGIN = 96
+const NPC_BODY_BLOCKER_WIDTH = 0.58
+const NPC_BODY_BLOCKER_HEIGHT = 22 / 32
+const NPC_BODY_BLOCKER_Y_OFFSET = 5 / 32
+
+type NpcBodyBounds = {
+  height: number
+  left: number
+  top: number
+  width: number
+  x: number
+  y: number
+}
 
 export class InteriorScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
@@ -231,23 +245,35 @@ export class InteriorScene extends Phaser.Scene {
   private addInteriorObject(object: InteriorObject) {
     const worldX = object.x * TILE_SIZE + TILE_SIZE / 2
     const worldY = object.y * TILE_SIZE + TILE_SIZE / 2
+    let npcSprite: Phaser.GameObjects.Sprite | undefined
+    let npcBodyBounds: NpcBodyBounds | undefined
 
     if (object.kind === 'npc' && object.sprite) {
-      const npc = this.add.sprite(worldX, worldY + 8, object.sprite, 18)
-      npc.setScale(this.getCharacterScale())
-      npc.setDepth(worldY + 12)
+      npcSprite = this.add.sprite(worldX, worldY + 8, object.sprite, 18)
+      npcSprite.setScale(this.getCharacterScale())
+      npcSprite.setDepth(worldY + 12)
+      npcBodyBounds = this.getNpcBodyBounds(npcSprite)
     }
 
     if (object.solid) {
-      const isNpc = object.kind === 'npc'
-      const blocker = this.add.rectangle(
-        worldX,
-        worldY + (isNpc ? 4 : 6),
-        TILE_SIZE * (isNpc ? 0.42 : 0.7),
-        TILE_SIZE * (isNpc ? 0.22 : 0.4),
-        0x000000,
-        0,
-      )
+      const blocker =
+        npcBodyBounds
+          ? this.add.rectangle(
+              npcBodyBounds.x,
+              npcBodyBounds.y,
+              npcBodyBounds.width,
+              npcBodyBounds.height,
+              0x000000,
+              0,
+            )
+          : this.add.rectangle(
+              worldX,
+              worldY + 6,
+              TILE_SIZE * 0.7,
+              TILE_SIZE * 0.4,
+              0x000000,
+              0,
+            )
       this.physics.add.existing(blocker, true)
       this.blockers?.add(blocker)
     }
@@ -261,6 +287,13 @@ export class InteriorScene extends Phaser.Scene {
               TILE_SIZE * 0.8,
               TILE_SIZE * 0.32,
             )
+          : npcBodyBounds
+            ? new Phaser.Geom.Rectangle(
+                npcBodyBounds.left,
+                npcBodyBounds.top,
+                npcBodyBounds.width,
+                npcBodyBounds.height,
+              )
           : new Phaser.Geom.Rectangle(
               worldX - TILE_SIZE * 0.45,
               worldY - TILE_SIZE * 0.45,
@@ -293,54 +326,68 @@ export class InteriorScene extends Phaser.Scene {
 
   private createUi() {
     this.prompt = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 92, '', {
-        fontFamily: 'monospace',
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 100, '', {
+        fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '18px',
+        fontStyle: '700',
         color: '#f4f7ff',
         backgroundColor: '#04070f',
         padding: { x: 16, y: 10 },
       })
+      .setLetterSpacing(0.6)
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(2000)
       .setVisible(false)
-    this.prompt.setStroke('#10192d', 4)
+    this.prompt.setStroke('#10192d', 2)
     this.prompt.setShadow(0, 2, '#01040b', 1, false, true)
 
-    const panelLeft = -DIALOGUE_PANEL_WIDTH / 2 + 40
-    const panelTop = -DIALOGUE_PANEL_HEIGHT / 2 + 26
+    const panelLeft = -DIALOGUE_PANEL_WIDTH / 2 + 34
+    const panelTop = -DIALOGUE_PANEL_HEIGHT / 2 + 22
     const dialogueBackground = this.add
-      .rectangle(0, 0, DIALOGUE_PANEL_WIDTH, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.995)
-      .setStrokeStyle(4, 0xa4b6ff, 0.9)
-    const dialogueTitle = this.add.text(panelLeft, panelTop, this.interior.title, {
-      fontFamily: 'monospace',
+      .rectangle(0, 0, DIALOGUE_PANEL_WIDTH, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.78)
+      .setStrokeStyle(3, 0xa4b6ff, 0.55)
+    const dialogueTitle = this.add
+      .text(panelLeft, panelTop, this.interior.title, {
+      fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '24px',
+      fontStyle: '700',
       color: '#d7e0ff',
     })
-    dialogueTitle.setStroke('#04070f', 4)
+      .setLetterSpacing(0.7)
+    dialogueTitle.setStroke('#04070f', 2)
     dialogueTitle.setShadow(0, 2, '#01040b', 1, false, true)
 
-    this.dialogueBody = this.add.text(panelLeft, panelTop + 46, '', {
-      fontFamily: 'monospace',
-      fontSize: '24px',
+    this.dialogueBody = this.add
+      .text(panelLeft, panelTop + 46, '', {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '26px',
+      fontStyle: '700',
       color: '#f6f8ff',
-      wordWrap: { width: DIALOGUE_PANEL_WIDTH - 128 },
+      wordWrap: { width: DIALOGUE_PANEL_WIDTH - 108 },
       lineSpacing: 12,
     })
-    this.dialogueBody.setStroke('#04070f', 5)
-    this.dialogueBody.setShadow(0, 2, '#01040b', 1, false, true)
+      .setLetterSpacing(0.8)
+    this.dialogueBody.setStroke('#04070f', 2)
+    this.dialogueBody.setShadow(0, 1, '#01040b', 1, false, true)
 
     const dialogueHint = this.add
-      .text(DIALOGUE_PANEL_WIDTH / 2 - 34, DIALOGUE_PANEL_HEIGHT / 2 - 22, 'enter closes', {
-        fontFamily: 'monospace',
+      .text(DIALOGUE_PANEL_WIDTH / 2 - 28, DIALOGUE_PANEL_HEIGHT / 2 - 18, 'enter closes', {
+        fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '16px',
+        fontStyle: '700',
         color: '#d7e0ff',
       })
+      .setLetterSpacing(0.5)
       .setOrigin(1, 1)
-    dialogueHint.setStroke('#04070f', 3)
+    dialogueHint.setStroke('#04070f', 2)
 
     this.dialogueBox = this.add
-      .container(GAME_WIDTH / 2, GAME_HEIGHT - 210, [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint])
+      .container(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT - DIALOGUE_PANEL_HEIGHT / 2 - DIALOGUE_PANEL_BOTTOM_MARGIN,
+        [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint],
+      )
       .setScrollFactor(0)
       .setDepth(2001)
       .setVisible(false)
@@ -484,6 +531,22 @@ export class InteriorScene extends Phaser.Scene {
     return bounds
   }
 
+  private getNpcBodyBounds(npcSprite: Phaser.GameObjects.Sprite): NpcBodyBounds {
+    const width = npcSprite.displayWidth * NPC_BODY_BLOCKER_WIDTH
+    const height = npcSprite.displayHeight * NPC_BODY_BLOCKER_HEIGHT
+    const x = npcSprite.x
+    const y = npcSprite.y + npcSprite.displayHeight * NPC_BODY_BLOCKER_Y_OFFSET
+
+    return {
+      x,
+      y,
+      width,
+      height,
+      left: x - width / 2,
+      top: y - height / 2,
+    }
+  }
+
   private isPushingIntoExitDoor() {
     if (!this.player) {
       return false
@@ -494,7 +557,7 @@ export class InteriorScene extends Phaser.Scene {
       return false
     }
 
-    return this.direction === 'down' && body.velocity.y >= 0
+    return this.direction === 'down' && body.velocity.y > 0
   }
 
   private getTileBlockerConfig(): TileBlockerConfig {

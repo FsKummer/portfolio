@@ -8,9 +8,9 @@ export const portfolioDialogues = {
   aboutSign:
     "This room covers Felipe's background, philosophy, and the context behind the work.",
   skillsNpc:
-    'Core strengths: TypeScript, React, Rails, product-minded frontend engineering, interaction design, and turning rough ideas into working software.',
+    'Outside software, Felipe likes staying active and using the gym as a reset.\nThis room is for hobbies, discipline, and the parts of life that keep the work balanced.',
   skillsSign:
-    "This room catalogues Felipe's stack, tools, and areas of technical confidence.",
+    "This room covers Felipe's hobbies, training routine, and the interests he keeps outside software.",
   contactSign:
     'The dock is the contact point. Later this will open links, contact methods, and a message flow for visitors.',
 } as const
