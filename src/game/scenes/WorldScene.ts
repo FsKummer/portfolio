@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import {
   COLLISION_BLOCKER,
@@ -28,6 +29,9 @@ type WorldSceneData = {
 const PLAYER_SPEED = 180
 const PLAYER_RUN_SPEED = 280
 const PLAYER_SCALE = 3
+const WORLD_DIALOGUE_PANEL_WIDTH = 920
+const WORLD_DIALOGUE_PANEL_HEIGHT = 228
+const WORLD_DIALOGUE_PANEL_BOTTOM_MARGIN = 76
 
 export class WorldScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
@@ -207,6 +211,10 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private createHud(visitorName: string) {
+    const dialoguePanelWidth = Math.min(WORLD_DIALOGUE_PANEL_WIDTH, GAME_WIDTH - 160)
+    const dialoguePanelLeft = -dialoguePanelWidth / 2 + 44
+    const dialoguePanelTop = -WORLD_DIALOGUE_PANEL_HEIGHT / 2 + 22
+
     this.helpPanel = this.add.container(0, 0).setScrollFactor(0).setDepth(2000)
     const panelBackground = this.add
       .rectangle(214, 82, 396, 116, 0x050913, 0.78)
@@ -247,38 +255,52 @@ export class WorldScene extends Phaser.Scene {
       .setVisible(false)
 
     const dialogueBackground = this.add
-      .rectangle(384, 314, 760, 136, 0x050913, 0.92)
-      .setStrokeStyle(2, 0x90a3ff, 0.35)
+      .rectangle(0, 0, dialoguePanelWidth, WORLD_DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.8)
+      .setStrokeStyle(3, 0xa4b6ff, 0.55)
     const dialogueTitle = this.add
-      .text(54, 256, '', {
+      .text(dialoguePanelLeft, dialoguePanelTop, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '22px',
       fontStyle: '700',
-      color: '#9bb1ff',
+      color: '#d7e0ff',
     })
       .setLetterSpacing(0.7)
+      .setPadding(6, 4, 6, 4)
+    dialogueTitle.setStroke('#04070f', 2)
+    dialogueTitle.setShadow(0, 2, '#01040b', 1, false, true)
+
     this.dialogueBody = this.add
-      .text(54, 292, '', {
+      .text(dialoguePanelLeft, dialoguePanelTop + 42, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '24px',
+      fontSize: '22px',
       fontStyle: '700',
-      color: '#edf2ff',
-      wordWrap: { width: 660 },
+      color: '#f6f8ff',
+      wordWrap: { width: dialoguePanelWidth - 112 },
       lineSpacing: 12,
     })
-      .setLetterSpacing(0.7)
+      .setLetterSpacing(0.8)
+      .setPadding(6, 4, 6, 4)
+    this.dialogueBody.setStroke('#04070f', 2)
+    this.dialogueBody.setShadow(0, 1, '#01040b', 1, false, true)
+
     const dialogueHint = this.add
-      .text(742, 364, 'press enter to close', {
+      .text(dialoguePanelWidth / 2 - 28, WORLD_DIALOGUE_PANEL_HEIGHT / 2 - 18, 'enter closes', {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '14px',
+        fontSize: '16px',
         fontStyle: '700',
-        color: '#9bb1ff',
+        color: '#d7e0ff',
       })
       .setLetterSpacing(0.5)
-      .setOrigin(1, 0.5)
+      .setOrigin(1, 1)
+      .setPadding(4, 4, 4, 4)
+    dialogueHint.setStroke('#04070f', 2)
 
     this.dialogueBox = this.add
-      .container(0, 0, [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint])
+      .container(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT - WORLD_DIALOGUE_PANEL_HEIGHT / 2 - WORLD_DIALOGUE_PANEL_BOTTOM_MARGIN,
+        [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint],
+      )
       .setScrollFactor(0)
       .setDepth(2001)
       .setVisible(false)
@@ -320,7 +342,7 @@ export class WorldScene extends Phaser.Scene {
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     title.setText(this.activeZone.label)
-    this.dialogueBody.setText(portfolioDialogues.contactSign)
+    this.dialogueBody.setText(this.activeZone.message || portfolioDialogues.contactSign)
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.interactionPrompt?.setVisible(false)

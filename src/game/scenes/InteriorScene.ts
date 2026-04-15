@@ -27,11 +27,11 @@ const PLAYER_SPEED = 150
 const PLAYER_RUN_SPEED = 240
 const DEFAULT_INTERIOR_CAMERA_ZOOM = 1.6
 const DEFAULT_INTERIOR_CHARACTER_SCALE = 2.4
-const INTERACTION_PADDING = 6
-const INTERACTION_REACH = 22
-const DIALOGUE_PANEL_WIDTH = 1020
+const INTERACTION_PADDING = 8
+const INTERACTION_REACH = 30
+const DIALOGUE_PANEL_WIDTH = 920
 const DIALOGUE_PANEL_HEIGHT = 272
-const DIALOGUE_PANEL_BOTTOM_MARGIN = 96
+const DIALOGUE_PANEL_BOTTOM_MARGIN = 80
 const NPC_BODY_BLOCKER_WIDTH = 0.58
 const NPC_BODY_BLOCKER_HEIGHT = 22 / 32
 const NPC_BODY_BLOCKER_Y_OFFSET = 5 / 32
@@ -47,6 +47,7 @@ type NpcBodyBounds = {
 
 export class InteriorScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
+  private uiCamera?: Phaser.Cameras.Scene2D.Camera
   private movementKeys?: {
     up: Phaser.Input.Keyboard.Key
     down: Phaser.Input.Keyboard.Key
@@ -110,6 +111,7 @@ export class InteriorScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player as Phaser.Physics.Arcade.Sprite, true, 0.12, 0.12)
     this.cameras.main.setZoom(this.getCameraZoom())
     this.cameras.main.roundPixels = true
+    this.createUiCamera()
 
     this.createUi()
     this.bindInteractionInput()
@@ -325,6 +327,7 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private createUi() {
+    const dialoguePanelWidth = Math.min(DIALOGUE_PANEL_WIDTH, GAME_WIDTH - 160)
     this.prompt = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 100, '', {
         fontFamily: GAME_UI_FONT_FAMILY,
@@ -342,37 +345,39 @@ export class InteriorScene extends Phaser.Scene {
     this.prompt.setStroke('#10192d', 2)
     this.prompt.setShadow(0, 2, '#01040b', 1, false, true)
 
-    const panelLeft = -DIALOGUE_PANEL_WIDTH / 2 + 34
-    const panelTop = -DIALOGUE_PANEL_HEIGHT / 2 + 22
+    const panelLeft = -dialoguePanelWidth / 2 + 44
+    const panelTop = -DIALOGUE_PANEL_HEIGHT / 2 + 24
     const dialogueBackground = this.add
-      .rectangle(0, 0, DIALOGUE_PANEL_WIDTH, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.78)
+      .rectangle(0, 0, dialoguePanelWidth, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.78)
       .setStrokeStyle(3, 0xa4b6ff, 0.55)
     const dialogueTitle = this.add
       .text(panelLeft, panelTop, this.interior.title, {
       fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '24px',
+      fontSize: '22px',
       fontStyle: '700',
       color: '#d7e0ff',
     })
       .setLetterSpacing(0.7)
+      .setPadding(6, 4, 6, 4)
     dialogueTitle.setStroke('#04070f', 2)
     dialogueTitle.setShadow(0, 2, '#01040b', 1, false, true)
 
     this.dialogueBody = this.add
-      .text(panelLeft, panelTop + 46, '', {
+      .text(panelLeft, panelTop + 48, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '26px',
+      fontSize: '24px',
       fontStyle: '700',
       color: '#f6f8ff',
-      wordWrap: { width: DIALOGUE_PANEL_WIDTH - 108 },
+      wordWrap: { width: dialoguePanelWidth - 112 },
       lineSpacing: 12,
     })
       .setLetterSpacing(0.8)
+      .setPadding(6, 4, 6, 4)
     this.dialogueBody.setStroke('#04070f', 2)
     this.dialogueBody.setShadow(0, 1, '#01040b', 1, false, true)
 
     const dialogueHint = this.add
-      .text(DIALOGUE_PANEL_WIDTH / 2 - 28, DIALOGUE_PANEL_HEIGHT / 2 - 18, 'enter closes', {
+      .text(dialoguePanelWidth / 2 - 28, DIALOGUE_PANEL_HEIGHT / 2 - 18, 'enter closes', {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '16px',
         fontStyle: '700',
@@ -380,6 +385,7 @@ export class InteriorScene extends Phaser.Scene {
       })
       .setLetterSpacing(0.5)
       .setOrigin(1, 1)
+      .setPadding(4, 4, 4, 4)
     dialogueHint.setStroke('#04070f', 2)
 
     this.dialogueBox = this.add
@@ -392,6 +398,7 @@ export class InteriorScene extends Phaser.Scene {
       .setDepth(2001)
       .setVisible(false)
     this.dialogueBox.setData('title', dialogueTitle)
+    this.cameras.main.ignore([this.prompt, this.dialogueBox])
   }
 
   private bindInteractionInput() {
@@ -602,6 +609,13 @@ export class InteriorScene extends Phaser.Scene {
 
   private syncPlayerDepth() {
     this.player?.setDepth((this.player?.y ?? 0) + 12)
+  }
+
+  private createUiCamera() {
+    this.uiCamera = this.cameras.add(0, 0, GAME_WIDTH, GAME_HEIGHT)
+    this.uiCamera.setBackgroundColor('rgba(0,0,0,0)')
+    this.uiCamera.setRoundPixels(true)
+    this.uiCamera.ignore([...this.children.list])
   }
 
   private getCharacterScale() {

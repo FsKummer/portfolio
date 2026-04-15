@@ -52,7 +52,11 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
     height: STANDARD_MAP_HEIGHT,
     imageKey: 'skills-interior-map',
     jsonKey: 'skills-interior-json',
-    blockingLayers: ['walls', 'stuff'],
+    blockingLayers: ['Collision'],
+    collisionLayer: {
+      name: 'Collision',
+      blockedTileIds: [125],
+    },
     objects: [
       {
         kind: 'npc',
@@ -60,16 +64,16 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
         label: 'Project Curator',
         message: portfolioDialogues.projectsNpc,
         x: 3,
-        y: 4,
+        y: 5,
         solid: true,
       },
       {
         kind: 'sign',
         label: 'Projects Board',
         message: portfolioDialogues.projectsSign,
-        x: 12,
-        y: 4,
-        solid: true,
+        x: 11,
+        y: 2,
+        solid: false,
       },
       ...SHARED_EXITS,
     ],
