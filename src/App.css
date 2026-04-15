@@ -38,6 +38,139 @@
   justify-content: center;
 }
 
+.mobile-controller {
+  --controller-button-size: 80px;
+  position: absolute;
+  inset: 0;
+  padding:
+    max(18px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(22px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.mobile-controller--portrait {
+  --controller-button-size: 64px;
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+
+.mobile-controller__rotate-hint {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid rgba(140, 164, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(5, 9, 19, 0.84);
+  color: #dce5ff;
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mobile-controller__cluster {
+  position: relative;
+  width: calc(var(--controller-button-size) * 3);
+  height: calc(var(--controller-button-size) * 3);
+}
+
+.mobile-controller__button {
+  position: absolute;
+  width: var(--controller-button-size);
+  height: var(--controller-button-size);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(156, 179, 255, 0.45);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(181, 201, 255, 0.28), transparent 42%),
+    linear-gradient(180deg, rgba(15, 22, 43, 0.94), rgba(8, 13, 27, 0.96));
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #f3f6ff;
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  touch-action: none;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-controller__button.is-active {
+  transform: translateY(2px) scale(0.97);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.mobile-controller__button--dpad {
+  border-radius: 22px;
+}
+
+.mobile-controller__button--face {
+  border-radius: 999px;
+}
+
+.mobile-controller__button--up,
+.mobile-controller__button--x {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mobile-controller__button--left,
+.mobile-controller__button--y {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.mobile-controller__button--right,
+.mobile-controller__button--a {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.mobile-controller__button--down,
+.mobile-controller__button--b {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mobile-controller__button--up.is-active,
+.mobile-controller__button--x.is-active,
+.mobile-controller__button--down.is-active,
+.mobile-controller__button--b.is-active {
+  transform: translateX(-50%) translateY(2px) scale(0.97);
+}
+
+.mobile-controller__button--left.is-active,
+.mobile-controller__button--y.is-active,
+.mobile-controller__button--right.is-active,
+.mobile-controller__button--a.is-active {
+  transform: translateY(-50%) translateY(2px) scale(0.97);
+}
+
+.mobile-controller--portrait .mobile-controller__cluster {
+  width: calc(var(--controller-button-size) * 2.8);
+  height: calc(var(--controller-button-size) * 2.8);
+}
+
 .game-canvas canvas {
   display: block;
   max-width: 100%;

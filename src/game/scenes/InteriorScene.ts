@@ -3,6 +3,13 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import type { HouseZone } from '../data/worldMap'
 import { INTERIORS, type InteriorDefinition, type InteriorObject } from '../data/interiors'
+import {
+  clearVirtualControlInputs,
+  consumeQueuedVirtualControlAction,
+  isHeldVirtualControlPressed,
+  setGameplayControlContext,
+  supportsVirtualController,
+} from '../store/virtualControls'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
 
@@ -60,6 +67,7 @@ export class InteriorScene extends Phaser.Scene {
   private blockers?: Phaser.Physics.Arcade.StaticGroup
   private interactives: Array<InteriorObject & { area: Phaser.Geom.Rectangle }> = []
   private activeInteractive?: (InteriorObject & { area: Phaser.Geom.Rectangle })
+  private helpPanel?: Phaser.GameObjects.Container
   private prompt?: Phaser.GameObjects.Text
   private dialogueBox?: Phaser.GameObjects.Container
   private dialogueBody?: Phaser.GameObjects.Text
@@ -70,6 +78,7 @@ export class InteriorScene extends Phaser.Scene {
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
   private interior!: InteriorDefinition
   private transitioning = false
+  private mobileControlsEnabled = false
 
   constructor() {
     super('interior')
@@ -89,6 +98,7 @@ export class InteriorScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#050913')
+    this.mobileControlsEnabled = supportsVirtualController()
     this.cursors = this.input.keyboard?.createCursorKeys()
     this.movementKeys = this.input.keyboard?.addKeys({
       up: 'W',
@@ -115,12 +125,17 @@ export class InteriorScene extends Phaser.Scene {
 
     this.createUi()
     this.bindInteractionInput()
+    setGameplayControlContext('interior')
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupSceneControls, this)
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupSceneControls, this)
   }
 
   update() {
     if (!this.player) {
       return
     }
+
+    this.processVirtualActions()
 
     if (this.transitioning) {
       this.player.setVelocity(0, 0)
@@ -134,29 +149,45 @@ export class InteriorScene extends Phaser.Scene {
       return
     }
 
-    const left = this.cursors?.left.isDown || this.movementKeys?.left.isDown
-    const right = this.cursors?.right.isDown || this.movementKeys?.right.isDown
-    const up = this.cursors?.up.isDown || this.movementKeys?.up.isDown
-    const down = this.cursors?.down.isDown || this.movementKeys?.down.isDown
-    const sprinting = Boolean(this.movementKeys?.sprint.isDown)
+    const leftPressed = Boolean(
+      this.cursors?.left.isDown ||
+        this.movementKeys?.left.isDown ||
+        isHeldVirtualControlPressed('left'),
+    )
+    const rightPressed = Boolean(
+      this.cursors?.right.isDown ||
+        this.movementKeys?.right.isDown ||
+        isHeldVirtualControlPressed('right'),
+    )
+    const upPressed = Boolean(
+      this.cursors?.up.isDown || this.movementKeys?.up.isDown || isHeldVirtualControlPressed('up'),
+    )
+    const downPressed = Boolean(
+      this.cursors?.down.isDown ||
+        this.movementKeys?.down.isDown ||
+        isHeldVirtualControlPressed('down'),
+    )
+    const horizontal = Number(rightPressed) - Number(leftPressed)
+    const vertical = Number(downPressed) - Number(upPressed)
+    const sprinting = Boolean(this.movementKeys?.sprint.isDown || isHeldVirtualControlPressed('x'))
     const currentSpeed = sprinting ? this.getRunSpeed() : this.getWalkSpeed()
 
     let velocityX = 0
     let velocityY = 0
 
-    if (left) {
+    if (horizontal < 0) {
       velocityX = -currentSpeed
       this.direction = 'left'
     }
-    if (right) {
+    if (horizontal > 0) {
       velocityX = currentSpeed
       this.direction = 'right'
     }
-    if (up) {
+    if (vertical < 0) {
       velocityY = -currentSpeed
       this.direction = 'up'
     }
-    if (down) {
+    if (vertical > 0) {
       velocityY = currentSpeed
       this.direction = 'down'
     }
@@ -328,6 +359,38 @@ export class InteriorScene extends Phaser.Scene {
 
   private createUi() {
     const dialoguePanelWidth = Math.min(DIALOGUE_PANEL_WIDTH, GAME_WIDTH - 160)
+    const controlsCopy = this.mobileControlsEnabled
+      ? 'move: d-pad   sprint: x   interact: a\nclose: b   help: y'
+      : 'move: wasd/arrows   sprint: shift\ninteract: e / enter   help: h'
+    const dialogueHintText = this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes'
+
+    this.helpPanel = this.add
+      .container(0, 0)
+      .setScrollFactor(0)
+      .setDepth(2000)
+      .setVisible(!this.mobileControlsEnabled)
+    const panelBackground = this.add
+      .rectangle(214, 82, 396, 116, 0x050913, 0.78)
+      .setStrokeStyle(1, 0x90a3ff, 0.35)
+    const titleText = this.add
+      .text(40, 34, this.interior.title.toLowerCase(), {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '26px',
+      fontStyle: '700',
+      color: '#edf2ff',
+    })
+      .setLetterSpacing(0.8)
+    const controlsText = this.add
+      .text(40, 72, controlsCopy, {
+      fontFamily: GAME_UI_FONT_FAMILY,
+      fontSize: '16px',
+      fontStyle: '700',
+      color: '#9bb1ff',
+      wordWrap: { width: 332 },
+    })
+      .setLetterSpacing(0.5)
+    this.helpPanel.add([panelBackground, titleText, controlsText])
+
     this.prompt = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 100, '', {
         fontFamily: GAME_UI_FONT_FAMILY,
@@ -377,7 +440,7 @@ export class InteriorScene extends Phaser.Scene {
     this.dialogueBody.setShadow(0, 1, '#01040b', 1, false, true)
 
     const dialogueHint = this.add
-      .text(dialoguePanelWidth / 2 - 28, DIALOGUE_PANEL_HEIGHT / 2 - 18, 'enter closes', {
+      .text(dialoguePanelWidth / 2 - 28, DIALOGUE_PANEL_HEIGHT / 2 - 18, dialogueHintText, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '16px',
         fontStyle: '700',
@@ -398,22 +461,31 @@ export class InteriorScene extends Phaser.Scene {
       .setDepth(2001)
       .setVisible(false)
     this.dialogueBox.setData('title', dialogueTitle)
-    this.cameras.main.ignore([this.prompt, this.dialogueBox])
+    this.cameras.main.ignore([this.helpPanel, this.prompt, this.dialogueBox])
   }
 
   private bindInteractionInput() {
-    this.input.keyboard?.on('keydown-E', () => this.handleInteraction())
-    this.input.keyboard?.on('keydown-SPACE', () => this.handleInteraction())
-    this.input.keyboard?.on('keydown-ENTER', () => {
-      if (!this.dialogueOpen) {
-        return
-      }
-      this.closeDialogue()
-    })
+    this.input.keyboard?.on('keydown-E', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-SPACE', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-ENTER', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-H', () => this.toggleHelpPanel())
   }
 
-  private handleInteraction() {
+  private handlePrimaryAction() {
+    if (this.transitioning) {
+      return
+    }
+
+    if (this.dialogueOpen) {
+      this.closeDialogue()
+      return
+    }
+
     if (!this.activeInteractive) {
+      return
+    }
+
+    if (this.activeInteractive.kind === 'exit') {
       return
     }
 
@@ -429,9 +501,46 @@ export class InteriorScene extends Phaser.Scene {
     this.prompt?.setVisible(false)
   }
 
+  private handleBackAction() {
+    if (this.transitioning) {
+      return
+    }
+
+    if (this.dialogueOpen) {
+      this.closeDialogue()
+      return
+    }
+
+    if (this.helpPanel?.visible) {
+      this.helpPanel.setVisible(false)
+    }
+  }
+
   private closeDialogue() {
     this.dialogueOpen = false
     this.dialogueBox?.setVisible(false)
+  }
+
+  private toggleHelpPanel() {
+    if (this.transitioning || !this.helpPanel) {
+      return
+    }
+
+    this.helpPanel.setVisible(!this.helpPanel.visible)
+  }
+
+  private processVirtualActions() {
+    if (consumeQueuedVirtualControlAction('y')) {
+      this.toggleHelpPanel()
+    }
+
+    if (consumeQueuedVirtualControlAction('b')) {
+      this.handleBackAction()
+    }
+
+    if (consumeQueuedVirtualControlAction('a')) {
+      this.handlePrimaryAction()
+    }
   }
 
   private leaveInterior() {
@@ -474,7 +583,12 @@ export class InteriorScene extends Phaser.Scene {
       return
     }
 
-    this.prompt.setText('press e: ' + (this.activeInteractive.label || 'inspect')).setVisible(true)
+    this.prompt
+      .setText(
+        (this.mobileControlsEnabled ? 'press A: ' : 'press e: ') +
+          (this.activeInteractive.label || 'inspect'),
+      )
+      .setVisible(true)
   }
 
   private getAnimationDirection() {
@@ -616,6 +730,11 @@ export class InteriorScene extends Phaser.Scene {
     this.uiCamera.setBackgroundColor('rgba(0,0,0,0)')
     this.uiCamera.setRoundPixels(true)
     this.uiCamera.ignore([...this.children.list])
+  }
+
+  private cleanupSceneControls() {
+    clearVirtualControlInputs()
+    setGameplayControlContext(null)
   }
 
   private getCharacterScale() {

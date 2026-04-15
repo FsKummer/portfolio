@@ -15,6 +15,13 @@ import {
 } from '../data/worldMap'
 import { portfolioDialogues } from '../data/portfolioContent'
 import { loadVisitorProfile } from '../store/sessionStore'
+import {
+  clearVirtualControlInputs,
+  consumeQueuedVirtualControlAction,
+  isHeldVirtualControlPressed,
+  setGameplayControlContext,
+  supportsVirtualController,
+} from '../store/virtualControls'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
 
@@ -56,6 +63,7 @@ export class WorldScene extends Phaser.Scene {
   private spawnPoint = WORLD_SPAWN
   private transitioning = false
   private suppressedHouseEntryZoneId?: HouseZone['id']
+  private mobileControlsEnabled = false
 
   constructor() {
     super('world')
@@ -73,6 +81,7 @@ export class WorldScene extends Phaser.Scene {
   create() {
     const profile = loadVisitorProfile()
     this.playerAnimPrefix = profile.avatar === 'girl' ? 'amelia' : 'adam'
+    this.mobileControlsEnabled = supportsVirtualController()
 
     this.cameras.main.setBackgroundColor('#77d8e7')
     this.cursors = this.input.keyboard?.createCursorKeys()
@@ -98,12 +107,17 @@ export class WorldScene extends Phaser.Scene {
 
     this.createHud(profile.visitorName || 'traveler')
     this.bindInteractionInput()
+    setGameplayControlContext('world')
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupSceneControls, this)
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupSceneControls, this)
   }
 
   update() {
     if (!this.player) {
       return
     }
+
+    this.processVirtualActions()
 
     if (this.transitioning) {
       this.player.setVelocity(0, 0)
@@ -117,30 +131,46 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
-    const left = this.cursors?.left.isDown || this.movementKeys?.left.isDown
-    const right = this.cursors?.right.isDown || this.movementKeys?.right.isDown
-    const up = this.cursors?.up.isDown || this.movementKeys?.up.isDown
-    const down = this.cursors?.down.isDown || this.movementKeys?.down.isDown
+    const leftPressed = Boolean(
+      this.cursors?.left.isDown ||
+        this.movementKeys?.left.isDown ||
+        isHeldVirtualControlPressed('left'),
+    )
+    const rightPressed = Boolean(
+      this.cursors?.right.isDown ||
+        this.movementKeys?.right.isDown ||
+        isHeldVirtualControlPressed('right'),
+    )
+    const upPressed = Boolean(
+      this.cursors?.up.isDown || this.movementKeys?.up.isDown || isHeldVirtualControlPressed('up'),
+    )
+    const downPressed = Boolean(
+      this.cursors?.down.isDown ||
+        this.movementKeys?.down.isDown ||
+        isHeldVirtualControlPressed('down'),
+    )
 
-    const sprinting = Boolean(this.movementKeys?.sprint.isDown)
+    const horizontal = Number(rightPressed) - Number(leftPressed)
+    const vertical = Number(downPressed) - Number(upPressed)
+    const sprinting = Boolean(this.movementKeys?.sprint.isDown || isHeldVirtualControlPressed('x'))
     const currentSpeed = sprinting ? PLAYER_RUN_SPEED : PLAYER_SPEED
 
     let velocityX = 0
     let velocityY = 0
 
-    if (left) {
+    if (horizontal < 0) {
       velocityX = -currentSpeed
       this.direction = 'left'
     }
-    if (right) {
+    if (horizontal > 0) {
       velocityX = currentSpeed
       this.direction = 'right'
     }
-    if (up) {
+    if (vertical < 0) {
       velocityY = -currentSpeed
       this.direction = 'up'
     }
-    if (down) {
+    if (vertical > 0) {
       velocityY = currentSpeed
       this.direction = 'down'
     }
@@ -214,8 +244,16 @@ export class WorldScene extends Phaser.Scene {
     const dialoguePanelWidth = Math.min(WORLD_DIALOGUE_PANEL_WIDTH, GAME_WIDTH - 160)
     const dialoguePanelLeft = -dialoguePanelWidth / 2 + 44
     const dialoguePanelTop = -WORLD_DIALOGUE_PANEL_HEIGHT / 2 + 22
+    const controlsCopy = this.mobileControlsEnabled
+      ? 'move: d-pad   sprint: x   interact: a\nclose: b   help: y'
+      : 'move: wasd/arrows   sprint: shift\ninteract: e / enter   help: h'
+    const dialogueHintText = this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes'
 
-    this.helpPanel = this.add.container(0, 0).setScrollFactor(0).setDepth(2000)
+    this.helpPanel = this.add
+      .container(0, 0)
+      .setScrollFactor(0)
+      .setDepth(2000)
+      .setVisible(!this.mobileControlsEnabled)
     const panelBackground = this.add
       .rectangle(214, 82, 396, 116, 0x050913, 0.78)
       .setStrokeStyle(1, 0x90a3ff, 0.35)
@@ -228,7 +266,7 @@ export class WorldScene extends Phaser.Scene {
     })
       .setLetterSpacing(0.8)
     const controlsText = this.add
-      .text(40, 72, 'move: wasd/arrows   sprint: shift   interact: e   toggle hud: h', {
+      .text(40, 72, controlsCopy, {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '16px',
       fontStyle: '700',
@@ -284,7 +322,7 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBody.setShadow(0, 1, '#01040b', 1, false, true)
 
     const dialogueHint = this.add
-      .text(dialoguePanelWidth / 2 - 28, WORLD_DIALOGUE_PANEL_HEIGHT / 2 - 18, 'enter closes', {
+      .text(dialoguePanelWidth / 2 - 28, WORLD_DIALOGUE_PANEL_HEIGHT / 2 - 18, dialogueHintText, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '16px',
         fontStyle: '700',
@@ -308,21 +346,17 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private bindInteractionInput() {
-    this.input.keyboard?.on('keydown-E', () => this.handleInteraction())
-    this.input.keyboard?.on('keydown-SPACE', () => this.handleInteraction())
-    this.input.keyboard?.on('keydown-H', () => {
-      this.helpPanel?.setVisible(!this.helpPanel.visible)
-    })
-    this.input.keyboard?.on('keydown-ENTER', () => {
-      if (!this.dialogueOpen) {
-        return
-      }
-
-      this.closeDialogue()
-    })
+    this.input.keyboard?.on('keydown-E', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-SPACE', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-ENTER', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-H', () => this.toggleHelpPanel())
   }
 
-  private handleInteraction() {
+  private handlePrimaryAction() {
+    if (this.transitioning) {
+      return
+    }
+
     if (this.dialogueOpen) {
       this.closeDialogue()
       return
@@ -348,9 +382,46 @@ export class WorldScene extends Phaser.Scene {
     this.interactionPrompt?.setVisible(false)
   }
 
+  private handleBackAction() {
+    if (this.transitioning) {
+      return
+    }
+
+    if (this.dialogueOpen) {
+      this.closeDialogue()
+      return
+    }
+
+    if (this.helpPanel?.visible) {
+      this.helpPanel.setVisible(false)
+    }
+  }
+
   private closeDialogue() {
     this.dialogueOpen = false
     this.dialogueBox?.setVisible(false)
+  }
+
+  private toggleHelpPanel() {
+    if (this.transitioning || !this.helpPanel) {
+      return
+    }
+
+    this.helpPanel.setVisible(!this.helpPanel.visible)
+  }
+
+  private processVirtualActions() {
+    if (consumeQueuedVirtualControlAction('y')) {
+      this.toggleHelpPanel()
+    }
+
+    if (consumeQueuedVirtualControlAction('b')) {
+      this.handleBackAction()
+    }
+
+    if (consumeQueuedVirtualControlAction('a')) {
+      this.handlePrimaryAction()
+    }
   }
 
   private isHouseZone(zone: InteractionZone): zone is HouseZone {
@@ -436,7 +507,9 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.suppressedHouseEntryZoneId = undefined
-    this.interactionPrompt.setText('press e: ' + this.activeZone.label).setVisible(true)
+    this.interactionPrompt
+      .setText((this.mobileControlsEnabled ? 'press A: ' : 'press e: ') + this.activeZone.label)
+      .setVisible(true)
   }
 
   private getInteractionBounds() {
@@ -463,5 +536,10 @@ export class WorldScene extends Phaser.Scene {
     }
 
     return this.direction === 'up' && body.velocity.y <= 0
+  }
+
+  private cleanupSceneControls() {
+    clearVirtualControlInputs()
+    setGameplayControlContext(null)
   }
 }
