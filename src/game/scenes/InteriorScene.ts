@@ -1,8 +1,10 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
+import { BATTLE_ENCOUNTERS, type BattleEncounter } from '../data/battles'
 import type { HouseZone } from '../data/worldMap'
 import { INTERIORS, type InteriorDefinition, type InteriorObject } from '../data/interiors'
+import { hasDefeatedBattle } from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -10,11 +12,19 @@ import {
   setGameplayControlContext,
   supportsVirtualController,
 } from '../store/virtualControls'
+import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
 
-type InteriorSceneData = {
+export type InteriorSceneDialogue = {
+  message: string
+  title: string
+}
+
+export type InteriorSceneData = {
+  initialDialogue?: InteriorSceneDialogue
   interiorId: InteriorDefinition['id']
+  playerPosition?: { x: number; y: number }
   returnTo: { x: number; y: number }
   returnZoneId: HouseZone['id']
   playerAnimPrefix: 'adam' | 'amelia'
@@ -42,6 +52,7 @@ const DIALOGUE_PANEL_BOTTOM_MARGIN = 80
 const NPC_BODY_BLOCKER_WIDTH = 0.58
 const NPC_BODY_BLOCKER_HEIGHT = 22 / 32
 const NPC_BODY_BLOCKER_Y_OFFSET = 5 / 32
+const BATTLE_POSITIONING_SPEED = 360
 
 type NpcBodyBounds = {
   height: number
@@ -71,13 +82,18 @@ export class InteriorScene extends Phaser.Scene {
   private prompt?: Phaser.GameObjects.Text
   private dialogueBox?: Phaser.GameObjects.Container
   private dialogueBody?: Phaser.GameObjects.Text
+  private dialogueHint?: Phaser.GameObjects.Text
   private dialogueOpen = false
+  private battleChallengeOpen = false
   private direction: Direction = 'down'
   private returnTo = { x: 0, y: 0 }
   private returnZoneId!: HouseZone['id']
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
   private interior!: InteriorDefinition
+  private initialDialogue?: InteriorSceneDialogue
+  private playerPosition?: { x: number; y: number }
   private transitioning = false
+  private battlePositioning = false
   private mobileControlsEnabled = false
 
   constructor() {
@@ -89,11 +105,15 @@ export class InteriorScene extends Phaser.Scene {
     this.returnTo = data.returnTo
     this.returnZoneId = data.returnZoneId
     this.playerAnimPrefix = data.playerAnimPrefix
+    this.initialDialogue = data.initialDialogue
+    this.playerPosition = data.playerPosition
     this.interactives = []
     this.activeInteractive = undefined
     this.dialogueOpen = false
+    this.battleChallengeOpen = false
     this.direction = 'down'
     this.transitioning = false
+    this.battlePositioning = false
   }
 
   create() {
@@ -125,6 +145,7 @@ export class InteriorScene extends Phaser.Scene {
 
     this.createUi()
     this.bindInteractionInput()
+    this.openInitialDialogue()
     setGameplayControlContext('interior')
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupSceneControls, this)
     this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupSceneControls, this)
@@ -139,7 +160,9 @@ export class InteriorScene extends Phaser.Scene {
 
     if (this.transitioning) {
       this.player.setVelocity(0, 0)
-      this.playIdleAnimation()
+      if (!this.battlePositioning) {
+        this.playIdleAnimation()
+      }
       return
     }
 
@@ -342,9 +365,12 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private createPlayer() {
+    const spawnX = this.playerPosition?.x ?? this.interior.spawn.x * TILE_SIZE + TILE_SIZE / 2
+    const spawnY = this.playerPosition?.y ?? this.interior.spawn.y * TILE_SIZE + TILE_SIZE / 2
+
     this.player = this.physics.add.sprite(
-      this.interior.spawn.x * TILE_SIZE + TILE_SIZE / 2,
-      this.interior.spawn.y * TILE_SIZE + TILE_SIZE / 2,
+      spawnX,
+      spawnY,
       `${this.playerAnimPrefix}-idle`,
       18,
     )
@@ -439,7 +465,7 @@ export class InteriorScene extends Phaser.Scene {
     this.dialogueBody.setStroke('#04070f', 2)
     this.dialogueBody.setShadow(0, 1, '#01040b', 1, false, true)
 
-    const dialogueHint = this.add
+    this.dialogueHint = this.add
       .text(dialoguePanelWidth / 2 - 28, DIALOGUE_PANEL_HEIGHT / 2 - 18, dialogueHintText, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '16px',
@@ -449,13 +475,13 @@ export class InteriorScene extends Phaser.Scene {
       .setLetterSpacing(0.5)
       .setOrigin(1, 1)
       .setPadding(4, 4, 4, 4)
-    dialogueHint.setStroke('#04070f', 2)
+    this.dialogueHint.setStroke('#04070f', 2)
 
     this.dialogueBox = this.add
       .container(
         GAME_WIDTH / 2,
         GAME_HEIGHT - DIALOGUE_PANEL_HEIGHT / 2 - DIALOGUE_PANEL_BOTTOM_MARGIN,
-        [dialogueBackground, dialogueTitle, this.dialogueBody, dialogueHint],
+        [dialogueBackground, dialogueTitle, this.dialogueBody, this.dialogueHint],
       )
       .setScrollFactor(0)
       .setDepth(2001)
@@ -468,6 +494,7 @@ export class InteriorScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-E', () => this.handlePrimaryAction())
     this.input.keyboard?.on('keydown-SPACE', () => this.handlePrimaryAction())
     this.input.keyboard?.on('keydown-ENTER', () => this.handlePrimaryAction())
+    this.input.keyboard?.on('keydown-ESC', () => this.handleBackAction())
     this.input.keyboard?.on('keydown-H', () => this.toggleHelpPanel())
   }
 
@@ -477,6 +504,11 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     if (this.dialogueOpen) {
+      if (this.battleChallengeOpen) {
+        this.startBattleFromChallenge()
+        return
+      }
+
       this.closeDialogue()
       return
     }
@@ -489,16 +521,17 @@ export class InteriorScene extends Phaser.Scene {
       return
     }
 
-    if (!this.dialogueBox || !this.dialogueBody) {
+    const activeInteractive = this.activeInteractive
+
+    if (activeInteractive.battle) {
+      this.openBattleChallenge(activeInteractive)
       return
     }
 
-    const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
-    title.setText(this.activeInteractive.label || this.interior.title)
-    this.dialogueBody.setText(this.formatDialogue(this.activeInteractive.message || ''))
-    this.dialogueBox.setVisible(true)
-    this.dialogueOpen = true
-    this.prompt?.setVisible(false)
+    this.openDialogue(
+      activeInteractive.label || this.interior.title,
+      this.getInteractiveMessage(activeInteractive),
+    )
   }
 
   private handleBackAction() {
@@ -518,6 +551,7 @@ export class InteriorScene extends Phaser.Scene {
 
   private closeDialogue() {
     this.dialogueOpen = false
+    this.battleChallengeOpen = false
     this.dialogueBox?.setVisible(false)
   }
 
@@ -554,6 +588,145 @@ export class InteriorScene extends Phaser.Scene {
     this.time.delayedCall(130, () => {
       this.scene.start('world', { spawn: this.returnTo, suppressHouseEntryZoneId: this.returnZoneId })
     })
+  }
+
+  private openInitialDialogue() {
+    if (!this.initialDialogue) {
+      return
+    }
+
+    this.openDialogue(this.initialDialogue.title, this.initialDialogue.message)
+  }
+
+  private openBattleChallenge(interactive: InteriorObject & { area: Phaser.Geom.Rectangle }) {
+    if (!interactive.battle) {
+      return
+    }
+
+    const encounter = BATTLE_ENCOUNTERS[interactive.battle.encounterId]
+    const defeated = hasDefeatedBattle(interactive.battle.encounterId)
+
+    this.battleChallengeOpen = true
+    this.openDialogue(
+      interactive.label || this.interior.title,
+      defeated ? encounter.reward.unlockedMessage : interactive.battle.challengeMessage,
+      this.mobileControlsEnabled
+        ? 'A challenges / B closes'
+        : 'enter / space challenges   esc closes',
+    )
+  }
+
+  private startBattleFromChallenge() {
+    const battle = this.activeInteractive?.battle
+
+    if (!battle || !this.player) {
+      this.closeDialogue()
+      return
+    }
+
+    this.transitioning = true
+    this.player.setVelocity(0, 0)
+    this.closeDialogue()
+    this.prompt?.setVisible(false)
+
+    const encounter = BATTLE_ENCOUNTERS[battle.encounterId]
+    const battleSpot = this.getBattleSpotWorld(encounter)
+
+    this.movePlayerToBattleSpot(battleSpot, () => {
+      void playSquareCloseTransition(this).then(() => {
+        this.scene.start('battle', {
+          encounterId: battle.encounterId,
+          playerAnimPrefix: this.playerAnimPrefix,
+          returnData: {
+            interiorId: this.interior.id,
+            playerAnimPrefix: this.playerAnimPrefix,
+            playerPosition: {
+              x: battleSpot.x,
+              y: battleSpot.y,
+            },
+            returnTo: this.returnTo,
+            returnZoneId: this.returnZoneId,
+          } satisfies InteriorSceneData,
+        })
+      })
+    })
+  }
+
+  private movePlayerToBattleSpot(target: { x: number; y: number }, onComplete: () => void) {
+    if (!this.player) {
+      onComplete()
+      return
+    }
+
+    const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, target.x, target.y)
+    const duration = Math.max(260, (distance / BATTLE_POSITIONING_SPEED) * 1000)
+
+    this.battlePositioning = true
+    this.facePoint(target)
+    this.playWalkAnimation()
+
+    this.tweens.add({
+      targets: this.player,
+      x: target.x,
+      y: target.y,
+      duration,
+      ease: 'Linear',
+      onUpdate: () => this.syncPlayerDepth(),
+      onComplete: () => {
+        this.battlePositioning = false
+        this.direction = 'up'
+        this.playIdleAnimation()
+        this.syncPlayerDepth()
+        this.time.delayedCall(180, onComplete)
+      },
+    })
+  }
+
+  private getBattleSpotWorld(encounter: BattleEncounter) {
+    return {
+      x: encounter.battlefield.playerTile.x * TILE_SIZE + TILE_SIZE / 2,
+      y: encounter.battlefield.playerTile.y * TILE_SIZE + TILE_SIZE / 2,
+    }
+  }
+
+  private facePoint(target: { x: number; y: number }) {
+    if (!this.player) {
+      return
+    }
+
+    const deltaX = target.x - this.player.x
+    const deltaY = target.y - this.player.y
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      this.direction = deltaX > 0 ? 'right' : 'left'
+      return
+    }
+
+    this.direction = deltaY > 0 ? 'down' : 'up'
+  }
+
+  private openDialogue(titleText: string, message: string, hintText?: string) {
+    if (!this.dialogueBox || !this.dialogueBody || !this.dialogueHint) {
+      return
+    }
+
+    const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
+    title.setText(titleText)
+    this.dialogueBody.setText(this.formatDialogue(message))
+    this.dialogueHint.setText(
+      hintText ?? (this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes'),
+    )
+    this.dialogueBox.setVisible(true)
+    this.dialogueOpen = true
+    this.prompt?.setVisible(false)
+  }
+
+  private getInteractiveMessage(interactive: InteriorObject) {
+    if (interactive.battle && hasDefeatedBattle(interactive.battle.encounterId)) {
+      return BATTLE_ENCOUNTERS[interactive.battle.encounterId].reward.unlockedMessage
+    }
+
+    return interactive.message || ''
   }
 
   private updateInteractive() {

@@ -8,7 +8,7 @@ export type VirtualControlButton =
   | 'x'
   | 'y'
 
-export type GameplayControlContext = 'world' | 'interior' | null
+export type GameplayControlContext = 'world' | 'interior' | 'battle' | 'reward' | null
 
 export type HeldVirtualControlButton = Extract<
   VirtualControlButton,

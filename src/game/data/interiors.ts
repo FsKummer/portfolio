@@ -1,6 +1,13 @@
+import type { BattleEncounterId } from './battles'
 import { portfolioDialogues } from './portfolioContent'
 
+export type InteriorBattleConfig = {
+  challengeMessage: string
+  encounterId: BattleEncounterId
+}
+
 export type InteriorObject = {
+  battle?: InteriorBattleConfig
   frame?: number
   kind: 'decor' | 'npc' | 'sign' | 'exit'
   label?: string
@@ -63,8 +70,12 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
         sprite: 'alex-idle',
         label: 'Project Curator',
         message: portfolioDialogues.projectsNpc,
-        x: 3,
-        y: 5,
+        battle: {
+          encounterId: 'project-curator-trial',
+          challengeMessage: portfolioDialogues.projectsNpcChallenge,
+        },
+        x: 7,
+        y: 3,
         solid: true,
       },
       {
@@ -102,6 +113,10 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
         sprite: 'bob-idle',
         label: 'House Guide',
         message: portfolioDialogues.aboutNpc,
+        battle: {
+          encounterId: 'school-guide-trial',
+          challengeMessage: portfolioDialogues.aboutNpcChallenge,
+        },
         x: 22,
         y: 12,
         solid: true,
@@ -143,8 +158,12 @@ export const INTERIORS: Record<InteriorDefinition['id'], InteriorDefinition> = {
         sprite: 'alex-idle',
         label: 'Workout Buddy',
         message: portfolioDialogues.skillsNpc,
+        battle: {
+          encounterId: 'workout-buddy-trial',
+          challengeMessage: portfolioDialogues.skillsNpcChallenge,
+        },
         x: 15,
-        y: 7,
+        y: 4,
         solid: true,
       },
       {

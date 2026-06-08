@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
+import { BattleScene } from '../scenes/BattleScene'
 import { BootScene } from '../scenes/BootScene'
 import { CharacterSelectScene } from '../scenes/CharacterSelectScene'
+import { CrystalRewardScene } from '../scenes/CrystalRewardScene'
 import { InteriorScene } from '../scenes/InteriorScene'
 import { IntroScene } from '../scenes/IntroScene'
 import { WorldScene } from '../scenes/WorldScene'
@@ -24,7 +26,15 @@ export function createGameConfig(parent: string): Phaser.Types.Core.GameConfig {
     dom: {
       createContainer: true,
     },
-    scene: [BootScene, IntroScene, CharacterSelectScene, WorldScene, InteriorScene],
+    scene: [
+      BootScene,
+      IntroScene,
+      CharacterSelectScene,
+      WorldScene,
+      InteriorScene,
+      BattleScene,
+      CrystalRewardScene,
+    ],
     physics: {
       default: 'arcade',
       arcade: {
