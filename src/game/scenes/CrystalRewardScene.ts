@@ -1,7 +1,13 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
-import { BATTLE_ENCOUNTERS, type BattleEncounter, type BattleEncounterId } from '../data/battles'
+import {
+  BATTLE_ENCOUNTERS,
+  CRYSTAL_BATTLE_ENCOUNTER_IDS,
+  type BattleEncounter,
+  type CrystalBattleEncounterId,
+  type CrystalBattleReward,
+} from '../data/battles'
 import { collectCrystal, hasCrystal, loadVisitorProfile } from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
@@ -11,7 +17,7 @@ import {
 import type { InteriorSceneData } from './InteriorScene'
 
 type CrystalRewardSceneData = {
-  encounterId: BattleEncounterId
+  encounterId: CrystalBattleEncounterId
   returnData: InteriorSceneData
 }
 
@@ -34,7 +40,8 @@ export class CrystalRewardScene extends Phaser.Scene {
   }
 
   create() {
-    const crystal = this.encounter.reward.crystal
+    const reward = this.getCrystalReward()
+    const crystal = reward.crystal
     const alreadyHadCrystal = hasCrystal(crystal.id)
 
     collectCrystal(crystal.id)
@@ -78,7 +85,7 @@ export class CrystalRewardScene extends Phaser.Scene {
 
   private createCrystal(
     crystalName: string,
-    colors: BattleEncounter['reward']['crystal']['colors'],
+    colors: CrystalBattleReward['crystal']['colors'],
     alreadyHadCrystal: boolean,
   ) {
     const glow = this.add.circle(0, 0, 118, colors.glow, 0.18)
@@ -218,7 +225,11 @@ export class CrystalRewardScene extends Phaser.Scene {
 
   private getCollectedBattleCrystalCount() {
     const battleCrystalIds = new Set(
-      Object.values(BATTLE_ENCOUNTERS).map((encounter) => encounter.reward.crystal.id),
+      CRYSTAL_BATTLE_ENCOUNTER_IDS.map((encounterId) => {
+        const reward = BATTLE_ENCOUNTERS[encounterId].reward
+
+        return reward.kind === 'crystal' ? reward.crystal.id : ''
+      }),
     )
 
     return loadVisitorProfile().progress.crystalIds.filter((crystalId) =>
@@ -228,8 +239,20 @@ export class CrystalRewardScene extends Phaser.Scene {
 
   private getTotalBattleCrystalCount() {
     return new Set(
-      Object.values(BATTLE_ENCOUNTERS).map((encounter) => encounter.reward.crystal.id),
+      CRYSTAL_BATTLE_ENCOUNTER_IDS.map((encounterId) => {
+        const reward = BATTLE_ENCOUNTERS[encounterId].reward
+
+        return reward.kind === 'crystal' ? reward.crystal.id : ''
+      }),
     ).size
+  }
+
+  private getCrystalReward() {
+    if (this.encounter.reward.kind !== 'crystal') {
+      throw new Error('CrystalRewardScene requires a crystal battle encounter.')
+    }
+
+    return this.encounter.reward
   }
 
   private returnToInterior() {

@@ -37,6 +37,7 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 32,
     })
+    this.load.image('mystic-guide', '/assets/sprites/mystic_guide_16x32.png')
     this.load.image('world-map', '/assets/maps/game_map.png')
     this.load.image('skills-interior-map', '/assets/maps/skills-interior.png')
     this.load.text('skills-interior-json', '/assets/maps/skills-interior.json')

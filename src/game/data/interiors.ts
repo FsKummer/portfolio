@@ -1,9 +1,9 @@
-import type { BattleEncounterId } from './battles'
+import type { CrystalBattleEncounterId } from './battles'
 import { portfolioDialogues } from './portfolioContent'
 
 export type InteriorBattleConfig = {
   challengeMessage: string
-  encounterId: BattleEncounterId
+  encounterId: CrystalBattleEncounterId
 }
 
 export type InteriorObject = {

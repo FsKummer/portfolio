@@ -3,6 +3,8 @@ export type AvatarChoice = 'boy' | 'girl'
 export type VisitorProgress = {
   crystalIds: string[]
   defeatedBattleIds: string[]
+  guideIntroSeen: boolean
+  questMapGranted: boolean
 }
 
 export type VisitorProfile = {
@@ -18,6 +20,8 @@ const DEFAULT_PROFILE: VisitorProfile = {
   progress: {
     crystalIds: [],
     defeatedBattleIds: [],
+    guideIntroSeen: false,
+    questMapGranted: false,
   },
   visitorName: '',
 }
@@ -28,6 +32,8 @@ function createDefaultProfile(): VisitorProfile {
     progress: {
       crystalIds: [...DEFAULT_PROFILE.progress.crystalIds],
       defeatedBattleIds: [...DEFAULT_PROFILE.progress.defeatedBattleIds],
+      guideIntroSeen: DEFAULT_PROFILE.progress.guideIntroSeen,
+      questMapGranted: DEFAULT_PROFILE.progress.questMapGranted,
     },
     visitorName: DEFAULT_PROFILE.visitorName,
   }
@@ -40,10 +46,18 @@ function normalizeProgress(progress: Partial<VisitorProgress> | undefined): Visi
   const defeatedBattleIds = Array.isArray(progress?.defeatedBattleIds)
     ? progress.defeatedBattleIds.filter((battleId) => typeof battleId === 'string')
     : DEFAULT_PROFILE.progress.defeatedBattleIds
+  const guideIntroSeen =
+    typeof progress?.guideIntroSeen === 'boolean'
+      ? progress.guideIntroSeen
+      : DEFAULT_PROFILE.progress.guideIntroSeen
+  const questMapGranted =
+    typeof progress?.questMapGranted === 'boolean' ? progress.questMapGranted : guideIntroSeen
 
   return {
     crystalIds: Array.from(new Set(crystalIds)),
     defeatedBattleIds: Array.from(new Set(defeatedBattleIds)),
+    guideIntroSeen,
+    questMapGranted,
   }
 }
 
@@ -83,6 +97,14 @@ export function saveVisitorProfile(profile: VisitorProfile) {
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+}
+
+export function resetVisitorProfile() {
+  const nextProfile = createDefaultProfile()
+
+  saveVisitorProfile(nextProfile)
+
+  return nextProfile
 }
 
 export function updateVisitorProfile(partialProfile: Partial<VisitorProfile>) {
@@ -135,6 +157,22 @@ export function collectCrystal(crystalId: string) {
     progress: {
       ...currentProfile.progress,
       crystalIds: [...currentProfile.progress.crystalIds, crystalId],
+    },
+  })
+}
+
+export function markQuestGuideIntroSeen() {
+  const currentProfile = loadVisitorProfile()
+
+  if (currentProfile.progress.guideIntroSeen) {
+    return currentProfile
+  }
+
+  return updateVisitorProfile({
+    progress: {
+      ...currentProfile.progress,
+      guideIntroSeen: true,
+      questMapGranted: true,
     },
   })
 }

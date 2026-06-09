@@ -3,6 +3,7 @@ import { BattleScene } from '../scenes/BattleScene'
 import { BootScene } from '../scenes/BootScene'
 import { CharacterSelectScene } from '../scenes/CharacterSelectScene'
 import { CrystalRewardScene } from '../scenes/CrystalRewardScene'
+import { FinalPrizeScene } from '../scenes/FinalPrizeScene'
 import { InteriorScene } from '../scenes/InteriorScene'
 import { IntroScene } from '../scenes/IntroScene'
 import { WorldScene } from '../scenes/WorldScene'
@@ -34,6 +35,7 @@ export function createGameConfig(parent: string): Phaser.Types.Core.GameConfig {
       InteriorScene,
       BattleScene,
       CrystalRewardScene,
+      FinalPrizeScene,
     ],
     physics: {
       default: 'arcade',

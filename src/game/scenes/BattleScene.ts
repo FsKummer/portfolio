@@ -7,6 +7,7 @@ import {
   type BattleActionId,
   type BattleEncounter,
   type BattleEncounterId,
+  type CrystalBattleEncounterId,
 } from '../data/battles'
 import { INTERIORS } from '../data/interiors'
 import { markBattleDefeated } from '../store/sessionStore'
@@ -22,8 +23,22 @@ import type { InteriorSceneData, InteriorSceneDialogue } from './InteriorScene'
 type BattleSceneData = {
   encounterId: BattleEncounterId
   playerAnimPrefix: 'adam' | 'amelia'
-  returnData: InteriorSceneData
+  returnData: BattleReturnData
 }
+
+export type WorldBattleReturnData = {
+  initialDialogue?: {
+    message: string
+    title: string
+  }
+  returnScene: 'world'
+  spawn: {
+    x: number
+    y: number
+  }
+}
+
+type BattleReturnData = InteriorSceneData | WorldBattleReturnData
 
 type FighterState = {
   attackDamage: number
@@ -72,7 +87,7 @@ export class BattleScene extends Phaser.Scene {
   private playerMpFill?: Phaser.GameObjects.Rectangle
   private playerMpText?: Phaser.GameObjects.Text
   private playerSprite?: Phaser.GameObjects.Sprite
-  private returnData!: InteriorSceneData
+  private returnData!: BattleReturnData
   private selectedActionIndex = 0
   private turnLocked = false
   private battleEnded = false
@@ -133,11 +148,18 @@ export class BattleScene extends Phaser.Scene {
 
   private createBattlefield() {
     const battlefield = this.encounter.battlefield
-    const interior = INTERIORS[battlefield.interiorId]
+    const imageKey =
+      battlefield.imageKey ??
+      (battlefield.interiorId ? INTERIORS[battlefield.interiorId].imageKey : undefined)
+
+    if (!imageKey) {
+      throw new Error(`Battle encounter ${this.encounter.id} is missing a battlefield image.`)
+    }
+
     this.add
-      .image(battlefield.backgroundOffset.x, battlefield.backgroundOffset.y, interior.imageKey)
+      .image(battlefield.backgroundOffset.x, battlefield.backgroundOffset.y, imageKey)
       .setOrigin(0)
-      .setScale(BATTLE_MAP_SCALE)
+      .setScale(battlefield.backgroundScale ?? BATTLE_MAP_SCALE)
       .setDepth(0)
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x050913, 0.32)
     this.add.rectangle(GAME_WIDTH / 2, 384, GAME_WIDTH, 160, 0x050913, 0.2)
@@ -154,8 +176,10 @@ export class BattleScene extends Phaser.Scene {
       .setScale(characterScale)
       .setDepth(20)
     this.playerSprite.play(`${this.playerAnimPrefix}-idle-up`)
+    const enemyFrame = this.encounter.enemy.spriteKey === 'mystic-guide' ? undefined : 18
+
     this.enemySprite = this.add
-      .sprite(enemyPosition.x, enemyPosition.y, this.encounter.enemy.spriteKey, 18)
+      .sprite(enemyPosition.x, enemyPosition.y, this.encounter.enemy.spriteKey, enemyFrame)
       .setScale(characterScale)
       .setDepth(20)
 
@@ -461,7 +485,14 @@ export class BattleScene extends Phaser.Scene {
     markBattleDefeated(this.encounter.reward.defeatedBattleId)
     this.pushLog(this.encounter.victoryLog)
     this.refreshCommandMenu()
-    this.time.delayedCall(1400, () => this.openCrystalReward())
+    this.time.delayedCall(1400, () => {
+      if (this.encounter.reward.kind === 'final') {
+        this.openFinalReward()
+        return
+      }
+
+      this.openCrystalReward()
+    })
   }
 
   private finishDefeat() {
@@ -469,16 +500,24 @@ export class BattleScene extends Phaser.Scene {
     this.pushLog('You fall back from the trial.')
     this.refreshCommandMenu()
     this.time.delayedCall(1400, () =>
-      this.returnToInterior({
+      this.returnFromBattle({
         title: this.enemy.name,
         message: this.encounter.defeatMessage,
       }),
     )
   }
 
-  private returnToInterior(initialDialogue?: InteriorSceneDialogue) {
+  private returnFromBattle(initialDialogue?: InteriorSceneDialogue) {
     this.cameras.main.fadeOut(140, 0, 0, 0)
     this.time.delayedCall(150, () => {
+      if (this.isWorldReturnData(this.returnData)) {
+        this.scene.start('world', {
+          initialDialogue,
+          spawn: this.returnData.spawn,
+        })
+        return
+      }
+
       this.scene.start('interior', {
         ...this.returnData,
         initialDialogue,
@@ -487,13 +526,35 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private openCrystalReward() {
+    if (this.encounter.reward.kind !== 'crystal' || this.isWorldReturnData(this.returnData)) {
+      return
+    }
+
     this.cameras.main.fadeOut(140, 0, 0, 0)
     this.time.delayedCall(150, () => {
       this.scene.start('crystal-reward', {
-        encounterId: this.encounter.id,
+        encounterId: this.encounter.id as CrystalBattleEncounterId,
         returnData: this.returnData,
       })
     })
+  }
+
+  private openFinalReward() {
+    this.cameras.main.fadeOut(140, 0, 0, 0)
+    this.time.delayedCall(150, () => {
+      this.scene.start('final-prize', {
+        returnData: this.isWorldReturnData(this.returnData)
+          ? this.returnData
+          : {
+              returnScene: 'world',
+              spawn: { x: 348, y: 384 },
+            },
+      })
+    })
+  }
+
+  private isWorldReturnData(returnData: BattleReturnData): returnData is WorldBattleReturnData {
+    return 'returnScene' in returnData && returnData.returnScene === 'world'
   }
 
   private applyDamage(target: FighterState, amount: number) {

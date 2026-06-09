@@ -26,7 +26,7 @@ export type BattleParticipant = {
   maxHp: number
   maxMp: number
   name: string
-  spriteKey: 'alex-idle' | 'bob-idle'
+  spriteKey: 'alex-idle' | 'bob-idle' | 'mystic-guide'
 }
 
 export type BattleTilePosition = {
@@ -39,18 +39,24 @@ export type BattleField = {
     x: number
     y: number
   }
+  backgroundScale?: number
   characterScale?: number
   enemyTile: BattleTilePosition
-  interiorId: InteriorDefinition['id']
+  imageKey?: 'world-map'
+  interiorId?: InteriorDefinition['id']
   playerTile: BattleTilePosition
 }
 
-export type BattleEncounterId =
+export type CrystalBattleEncounterId =
   | 'project-curator-trial'
   | 'school-guide-trial'
   | 'workout-buddy-trial'
 
-export type BattleReward = {
+export type FinalBattleEncounterId = 'mystic-guide-final'
+
+export type BattleEncounterId = CrystalBattleEncounterId | FinalBattleEncounterId
+
+export type CrystalBattleReward = {
   crystal: {
     colors: {
       body: number
@@ -61,9 +67,19 @@ export type BattleReward = {
     id: string
     name: string
   }
-  defeatedBattleId: BattleEncounterId
+  defeatedBattleId: CrystalBattleEncounterId
+  kind: 'crystal'
   unlockedMessage: string
 }
+
+export type FinalBattleReward = {
+  defeatedBattleId: FinalBattleEncounterId
+  kind: 'final'
+  scheduleUrl: string
+  unlockedMessage: string
+}
+
+export type BattleReward = CrystalBattleReward | FinalBattleReward
 
 export type BattleEncounter = {
   actions: BattleActionId[]
@@ -76,6 +92,16 @@ export type BattleEncounter = {
   title: string
   victoryLog: string
 }
+
+export const SCHEDULE_CALL_URL = 'https://calendar.app.google/C7M4Y6x4j3RpTKV76'
+
+export const FINAL_GUIDE_ENCOUNTER_ID: FinalBattleEncounterId = 'mystic-guide-final'
+
+export const CRYSTAL_BATTLE_ENCOUNTER_IDS: CrystalBattleEncounterId[] = [
+  'project-curator-trial',
+  'school-guide-trial',
+  'workout-buddy-trial',
+]
 
 export const BATTLE_ACTIONS: Record<BattleActionId, BattleAction> = {
   attack: {
@@ -131,6 +157,7 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       attackDamage: 10,
     },
     reward: {
+      kind: 'crystal',
       crystal: {
         id: 'craft-crystal',
         name: 'Ruby Craft Crystal',
@@ -170,6 +197,7 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       attackDamage: 12,
     },
     reward: {
+      kind: 'crystal',
       crystal: {
         id: 'knowledge-crystal',
         name: 'Azure Knowledge Crystal',
@@ -209,6 +237,7 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       attackDamage: 14,
     },
     reward: {
+      kind: 'crystal',
       crystal: {
         id: 'vitality-crystal',
         name: 'Emerald Vitality Crystal',
@@ -222,6 +251,38 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       defeatedBattleId: 'workout-buddy-trial',
       unlockedMessage:
         'Felipe keeps momentum through discipline outside the screen too: training, hobbies, and recovery all feed back into steadier creative work.',
+    },
+  },
+  'mystic-guide-final': {
+    id: 'mystic-guide-final',
+    title: 'Mysterious Guide Trial',
+    actions: ['attack', 'magic', 'item'],
+    battlefield: {
+      imageKey: 'world-map',
+      backgroundOffset: { x: 280, y: 88 },
+      backgroundScale: 4,
+      characterScale: 3.4,
+      enemyTile: { x: 5.833, y: 3.5 },
+      playerTile: { x: 7, y: 8 },
+    },
+    introLog: 'The mysterious guide raises the final light.',
+    victoryLog: 'The guide bows. The final prize is yours.',
+    defeatMessage:
+      'The guide steadies the light. "Your crystals are true. Return when your focus is sharper."',
+    enemy: {
+      id: 'mystic-guide',
+      name: 'Mysterious Guide',
+      spriteKey: 'mystic-guide',
+      maxHp: 112,
+      maxMp: 0,
+      attackDamage: 12,
+    },
+    reward: {
+      kind: 'final',
+      defeatedBattleId: 'mystic-guide-final',
+      scheduleUrl: SCHEDULE_CALL_URL,
+      unlockedMessage:
+        'The guide opens the last path: a 15 minute call with Felipe Kummer.',
     },
   },
 }

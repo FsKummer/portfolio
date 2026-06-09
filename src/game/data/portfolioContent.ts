@@ -1,4 +1,16 @@
 export const portfolioDialogues = {
+  questGuide: (visitorName: string) => [
+    `${visitorName}, this island answers to three portfolio crystals.`,
+    'The Ruby Craft Crystal waits in the Projects House. The Azure Knowledge Crystal waits in the Education House. The Emerald Vitality Crystal waits in the Gym House.',
+    'Speak with each guardian, face their trial, and claim every crystal. Move with WASD or arrows, sprint with Shift, and interact with E, Enter, or Space.',
+    'Take this map. Press M in the world to see your position and where each crystal waits.',
+  ],
+  finalGuideChallenge: (visitorName: string) => [
+    `${visitorName}, every crystal now answers your call.`,
+    'You have crossed craft, knowledge, and discipline. The island recognizes you as its hero.',
+    'One final prize remains, but it is not handed away freely.',
+    'Face me in a final battle. Win, and I will open the path to Felipe Kummer.',
+  ],
   projectsNpc:
     'Felipe likes building polished product surfaces with game feel, strong interaction detail, and clean engineering under the hood.',
   projectsNpcChallenge:
