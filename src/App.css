@@ -30,21 +30,105 @@
   overflow: hidden;
 }
 
+.game-canvas:fullscreen,
+.game-canvas:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: #05070f;
+}
+
 .game-canvas__mount {
   position: relative;
   width: 100%;
   height: 100%;
 }
 
+.fullscreen-toggle {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 12;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(156, 179, 255, 0.34);
+  border-radius: 12px;
+  background: rgba(5, 9, 19, 0.42);
+  color: rgba(239, 244, 255, 0.82);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.fullscreen-toggle:hover,
+.fullscreen-toggle:focus-visible,
+.fullscreen-toggle.is-fullscreen {
+  border-color: rgba(181, 201, 255, 0.62);
+  background: rgba(11, 18, 36, 0.68);
+  color: #f5f8ff;
+}
+
+.fullscreen-toggle:focus-visible {
+  outline: 2px solid rgba(144, 163, 255, 0.7);
+  outline-offset: 3px;
+}
+
+.fullscreen-toggle__icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.fullscreen-toggle__corner {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-color: currentColor;
+}
+
+.fullscreen-toggle__corner--top-left {
+  top: 0;
+  left: 0;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.fullscreen-toggle__corner--top-right {
+  top: 0;
+  right: 0;
+  border-top: 2px solid;
+  border-right: 2px solid;
+}
+
+.fullscreen-toggle__corner--bottom-left {
+  bottom: 0;
+  left: 0;
+  border-bottom: 2px solid;
+  border-left: 2px solid;
+}
+
+.fullscreen-toggle__corner--bottom-right {
+  right: 0;
+  bottom: 0;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
 .mobile-controller {
-  --controller-button-size: 80px;
+  --controller-button-size: 56px;
   position: absolute;
   inset: 0;
   padding:
-    max(18px, env(safe-area-inset-top))
-    max(18px, env(safe-area-inset-right))
-    max(22px, env(safe-area-inset-bottom))
-    max(18px, env(safe-area-inset-left));
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -53,22 +137,22 @@
 }
 
 .mobile-controller--portrait {
-  --controller-button-size: 64px;
-  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  --controller-button-size: 48px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .mobile-controller__rotate-hint {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top));
+  top: max(12px, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
-  padding: 8px 14px;
-  border: 1px solid rgba(140, 164, 255, 0.45);
+  padding: 5px 10px;
+  border: 1px solid rgba(140, 164, 255, 0.28);
   border-radius: 999px;
-  background: rgba(5, 9, 19, 0.84);
-  color: #dce5ff;
+  background: rgba(5, 9, 19, 0.46);
+  color: rgba(220, 229, 255, 0.76);
   font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -77,8 +161,8 @@
 
 .mobile-controller__cluster {
   position: relative;
-  width: calc(var(--controller-button-size) * 3);
-  height: calc(var(--controller-button-size) * 3);
+  width: calc(var(--controller-button-size) * 2.9);
+  height: calc(var(--controller-button-size) * 2.9);
 }
 
 .mobile-controller__button {
@@ -87,17 +171,17 @@
   height: var(--controller-button-size);
   display: grid;
   place-items: center;
-  border: 1px solid rgba(156, 179, 255, 0.45);
-  border-radius: 24px;
+  border: 1px solid rgba(156, 179, 255, 0.28);
+  border-radius: 16px;
   background:
-    radial-gradient(circle at 30% 25%, rgba(181, 201, 255, 0.28), transparent 42%),
-    linear-gradient(180deg, rgba(15, 22, 43, 0.94), rgba(8, 13, 27, 0.96));
+    radial-gradient(circle at 30% 25%, rgba(181, 201, 255, 0.1), transparent 42%),
+    linear-gradient(180deg, rgba(15, 22, 43, 0.26), rgba(8, 13, 27, 0.34));
   box-shadow:
-    0 14px 28px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: #f3f6ff;
+    0 8px 18px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: rgba(243, 246, 255, 0.8);
   font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
   touch-action: none;
   pointer-events: auto;
@@ -105,17 +189,24 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .mobile-controller__button.is-active {
   transform: translateY(2px) scale(0.97);
+  border-color: rgba(181, 201, 255, 0.58);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(217, 228, 255, 0.24), transparent 42%),
+    linear-gradient(180deg, rgba(32, 44, 78, 0.68), rgba(12, 20, 40, 0.74));
   box-shadow:
-    0 8px 20px rgba(0, 0, 0, 0.28),
+    0 6px 14px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #f8fbff;
 }
 
 .mobile-controller__button--dpad {
-  border-radius: 22px;
+  border-radius: 14px;
 }
 
 .mobile-controller__button--face {
@@ -162,11 +253,6 @@
 .mobile-controller__button--right.is-active,
 .mobile-controller__button--a.is-active {
   transform: translateY(-50%) translateY(2px) scale(0.97);
-}
-
-.mobile-controller--portrait .mobile-controller__cluster {
-  width: calc(var(--controller-button-size) * 2.8);
-  height: calc(var(--controller-button-size) * 2.8);
 }
 
 .game-canvas canvas {

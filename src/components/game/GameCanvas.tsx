@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import type Phaser from 'phaser'
 import { destroyGame, mountGame } from '../../game/core/bootGame'
+import { FullscreenButton } from './FullscreenButton'
 import { MobileControllerOverlay } from './MobileControllerOverlay'
 
 export function GameCanvas() {
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const mountRef = useRef<HTMLDivElement | null>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
 
@@ -21,8 +23,9 @@ export function GameCanvas() {
   }, [])
 
   return (
-    <div className="game-canvas">
+    <div ref={containerRef} className="game-canvas">
       <div ref={mountRef} className="game-canvas__mount" />
+      <FullscreenButton targetRef={containerRef} />
       <MobileControllerOverlay />
     </div>
   )
