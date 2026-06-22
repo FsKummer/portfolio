@@ -170,7 +170,11 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       },
       defeatedBattleId: 'project-curator-trial',
       unlockedMessage:
-        'Felipe approaches projects like playable product stories: clear scope, strong interaction details, and practical code paths that can keep evolving after launch.',
+        `Felipe's craft crystal is not about one feature. At Runa, he builds and operates payroll and HR systems that real companies depend on.
+
+His work lives where product, compliance, and operations meet: Rails services, React interfaces, database changes, reports, tax rules, integrations, CI/CD, observability, and production support.
+
+The curator calls that craft: understand the business problem, ship the smallest reliable fix, watch the system in production, and keep improving the tool for the people who depend on it.`,
     },
   },
   'school-guide-trial': {
@@ -200,17 +204,27 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       kind: 'crystal',
       crystal: {
         id: 'knowledge-crystal',
-        name: 'Azure Knowledge Crystal',
+        name: 'AWS Knowledge Crystal',
         colors: {
-          body: 0xa7f1ff,
-          detail: 0x6db9ff,
-          edge: 0xf4fbff,
-          glow: 0x7fe7ff,
+          body: 0xffb84d,
+          detail: 0xff9900,
+          edge: 0xffe3a3,
+          glow: 0xffa329,
         },
       },
       defeatedBattleId: 'school-guide-trial',
       unlockedMessage:
-        'Felipe turns complex product ideas into focused, playable experiences. His work balances polished interaction design with practical engineering choices, so the final product feels clear, intentional, and easy to keep improving.',
+        `Felipe's story starts long before code. Since he was young, he showed a natural talent for math, physics, and languages, and an unusual ability to learn quickly when a challenge caught his attention.
+
+As a young man, he set his sights on becoming an Officer of the Merchant Navy. He earned his place through a difficult and competitive entrance exam, then trained for a life where discipline, precision, and responsibility matter every day.
+
+At sea, he became a Nautical Officer aboard LNG carriers. Navigation, cargo operations, safety procedures, emergency response, and multinational crews taught him to stay calm, communicate clearly, and respect complex systems.
+
+In 2022, he chose a new horizon: technology. He began with Harvard's CS50, building the fundamentals that later carried him into Le Wagon's full stack web development bootcamp.
+
+Since then, he has kept moving: React, Go, mobile development, DevOps, Python, cloud infrastructure, and whatever the next problem required. He enjoys learning because every new tool is another way to solve a real problem.
+
+In 2024, he returned to Le Wagon for Data Engineering, expanding his knowledge of data pipelines, warehouses, analytics, and the infrastructure around modern data work.`,
     },
   },
   'workout-buddy-trial': {
@@ -250,7 +264,13 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       },
       defeatedBattleId: 'workout-buddy-trial',
       unlockedMessage:
-        'Felipe keeps momentum through discipline outside the screen too: training, hobbies, and recovery all feed back into steadier creative work.',
+        `Felipe's vitality crystal comes from more than code. He has always been drawn to sports, especially basketball.
+
+Through school and college, he played competitive basketball, built discipline with his teams, and earned many medals along the way.
+
+The game taught him timing, resilience, communication, and how to stay useful under pressure - habits that still show up in his engineering work.
+
+Nowadays he still enjoys an occasional game, but most days the routine is simpler: show up at the gym, train consistently, and keep the body ready for the next challenge.`,
     },
   },
   'mystic-guide-final': {
@@ -282,7 +302,7 @@ export const BATTLE_ENCOUNTERS: Record<BattleEncounterId, BattleEncounter> = {
       defeatedBattleId: 'mystic-guide-final',
       scheduleUrl: SCHEDULE_CALL_URL,
       unlockedMessage:
-        'The guide opens the last path: a 15 minute call with Felipe Kummer.',
+        'The guide opens the last path: contact Felipe by email, LinkedIn, GitHub, CV, or a 15 minute call.',
     },
   },
 }

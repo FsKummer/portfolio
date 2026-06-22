@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import { SCHEDULE_CALL_URL } from '../data/battles'
+import { portfolioContact } from '../data/portfolioContent'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -108,11 +109,11 @@ export class FinalPrizeScene extends Phaser.Scene {
 
   private createPrizePanel() {
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 174, 1060, 280, PANEL_COLOR, 0.92)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 174, 1060, 312, PANEL_COLOR, 0.92)
       .setStrokeStyle(3, PANEL_STROKE, 0.6)
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 282, 'Mysterious Guide', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 310, 'Mysterious Guide', {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '24px',
         fontStyle: '700',
@@ -123,11 +124,11 @@ export class FinalPrizeScene extends Phaser.Scene {
 
     this.add.text(
       164,
-      GAME_HEIGHT - 240,
+      GAME_HEIGHT - 270,
       'You gathered every crystal and passed the final trial. The final prize is a direct path to Felipe Kummer.',
       {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '24px',
+        fontSize: '22px',
         fontStyle: '700',
         color: '#f6f8ff',
         lineSpacing: 10,
@@ -135,10 +136,25 @@ export class FinalPrizeScene extends Phaser.Scene {
       },
     )
 
+    this.createContactLink(GAME_HEIGHT - 200, 'Email', portfolioContact.email, `mailto:${portfolioContact.email}`)
+    this.createContactLink(
+      GAME_HEIGHT - 168,
+      'LinkedIn',
+      portfolioContact.linkedIn,
+      portfolioContact.linkedInUrl,
+    )
+    this.createContactLink(
+      GAME_HEIGHT - 136,
+      'GitHub',
+      portfolioContact.github,
+      portfolioContact.githubUrl,
+    )
+    this.createContactLink(GAME_HEIGHT - 104, 'CV', 'Download PDF', portfolioContact.cvPath)
+
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 136, 'Schedule a 15 minute call', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 70, 'Schedule a 15 minute call', {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '30px',
+        fontSize: '24px',
         fontStyle: '700',
         color: '#fff1a8',
       })
@@ -148,9 +164,9 @@ export class FinalPrizeScene extends Phaser.Scene {
       .on('pointerdown', () => this.openScheduleLink())
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 94, SCHEDULE_CALL_URL, {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 42, SCHEDULE_CALL_URL, {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '17px',
+        fontSize: '15px',
         fontStyle: '700',
         color: '#b7c4ff',
       })
@@ -160,14 +176,36 @@ export class FinalPrizeScene extends Phaser.Scene {
       .on('pointerdown', () => this.openScheduleLink())
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 54, 'enter opens calendar   esc returns to island', {
+      .text(GAME_WIDTH - 92, GAME_HEIGHT - 26, 'enter opens calendar   esc returns', {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '16px',
+        fontSize: '14px',
         fontStyle: '700',
         color: '#d7e0ff',
       })
-      .setOrigin(0.5)
+      .setOrigin(1, 0.5)
       .setStroke('#01040b', 2)
+  }
+
+  private createContactLink(y: number, label: string, value: string, url: string) {
+    this.add
+      .text(164, y, `${label}:`, {
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '19px',
+        fontStyle: '700',
+        color: '#d7e0ff',
+      })
+      .setStroke('#01040b', 2)
+
+    this.add
+      .text(292, y, value, {
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '19px',
+        fontStyle: '700',
+        color: '#fff1a8',
+      })
+      .setStroke('#01040b', 2)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.openContactLink(url))
   }
 
   private bindInput() {
@@ -180,6 +218,11 @@ export class FinalPrizeScene extends Phaser.Scene {
   private openScheduleLink() {
     playSfx(this, SFX_KEYS.uiConfirm)
     window.open(SCHEDULE_CALL_URL, '_blank', 'noopener,noreferrer')
+  }
+
+  private openContactLink(url: string) {
+    playSfx(this, SFX_KEYS.uiConfirm)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   private returnToWorld() {

@@ -13,9 +13,11 @@ import {
   supportsVirtualController,
 } from '../store/virtualControls'
 import { SFX_KEYS, playSfx, stopMusic } from '../systems/audio'
+import { paginateDialogueText, typewriteText } from '../systems/dialogue'
 import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
+type RematchChoice = 'yes' | 'no'
 
 export type InteriorSceneDialogue = {
   message: string
@@ -50,6 +52,7 @@ const INTERACTION_REACH = 30
 const DIALOGUE_PANEL_WIDTH = 920
 const DIALOGUE_PANEL_HEIGHT = 272
 const DIALOGUE_PANEL_BOTTOM_MARGIN = 80
+const INTERIOR_DIALOGUE_PAGE_MAX_CHARS = 180
 const NPC_BODY_BLOCKER_WIDTH = 0.58
 const NPC_BODY_BLOCKER_HEIGHT = 22 / 32
 const NPC_BODY_BLOCKER_Y_OFFSET = 5 / 32
@@ -84,8 +87,18 @@ export class InteriorScene extends Phaser.Scene {
   private dialogueBox?: Phaser.GameObjects.Container
   private dialogueBody?: Phaser.GameObjects.Text
   private dialogueHint?: Phaser.GameObjects.Text
+  private rematchChoiceBox?: Phaser.GameObjects.Container
+  private rematchChoiceTexts: Phaser.GameObjects.Text[] = []
   private dialogueOpen = false
+  private dialogueTyping = false
+  private dialogueTypewriteRun = 0
+  private dialoguePages: string[] = []
+  private dialoguePageIndex = 0
+  private dialoguePageOptions: { showRematchChoices?: boolean } = {}
   private battleChallengeOpen = false
+  private battlePromptMode: 'challenge' | 'rematch' | null = null
+  private selectedRematchChoice: RematchChoice = 'yes'
+  private rematchChoiceDirectionLocked = false
   private direction: Direction = 'down'
   private returnTo = { x: 0, y: 0 }
   private returnZoneId!: HouseZone['id']
@@ -113,7 +126,15 @@ export class InteriorScene extends Phaser.Scene {
     this.interactives = []
     this.activeInteractive = undefined
     this.dialogueOpen = false
+    this.dialogueTyping = false
+    this.dialogueTypewriteRun += 1
+    this.dialoguePages = []
+    this.dialoguePageIndex = 0
+    this.dialoguePageOptions = {}
     this.battleChallengeOpen = false
+    this.battlePromptMode = null
+    this.selectedRematchChoice = 'yes'
+    this.rematchChoiceDirectionLocked = false
     this.direction = 'down'
     this.transitioning = false
     this.battlePositioning = false
@@ -483,11 +504,37 @@ export class InteriorScene extends Phaser.Scene {
       .setPadding(4, 4, 4, 4)
     this.dialogueHint.setStroke('#04070f', 2)
 
+    this.rematchChoiceTexts = ['Yes', 'No'].map((label, index) => {
+      const choice = this.add
+        .text(panelLeft + index * 148, DIALOGUE_PANEL_HEIGHT / 2 - 74, label, {
+          fontFamily: GAME_UI_FONT_FAMILY,
+          fontSize: '22px',
+          fontStyle: '700',
+          color: '#d7e0ff',
+        })
+        .setLetterSpacing(0.7)
+        .setPadding(6, 4, 6, 4)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => this.selectRematchChoice(index === 0 ? 'yes' : 'no'))
+        .on('pointerdown', () => this.confirmRematchChoice())
+      choice.setStroke('#04070f', 2)
+      choice.setShadow(0, 1, '#01040b', 1, false, true)
+
+      return choice
+    })
+    this.rematchChoiceBox = this.add.container(0, 0, this.rematchChoiceTexts).setVisible(false)
+
     this.dialogueBox = this.add
       .container(
         GAME_WIDTH / 2,
         GAME_HEIGHT - DIALOGUE_PANEL_HEIGHT / 2 - DIALOGUE_PANEL_BOTTOM_MARGIN,
-        [dialogueBackground, dialogueTitle, this.dialogueBody, this.dialogueHint],
+        [
+          dialogueBackground,
+          dialogueTitle,
+          this.dialogueBody,
+          this.rematchChoiceBox,
+          this.dialogueHint,
+        ],
       )
       .setScrollFactor(0)
       .setDepth(2001)
@@ -502,6 +549,14 @@ export class InteriorScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ENTER', () => this.handlePrimaryAction())
     this.input.keyboard?.on('keydown-ESC', () => this.handleBackAction())
     this.input.keyboard?.on('keydown-H', () => this.toggleHelpPanel())
+    this.input.keyboard?.on('keydown-LEFT', () => this.changeRematchChoice(-1))
+    this.input.keyboard?.on('keydown-A', () => this.changeRematchChoice(-1))
+    this.input.keyboard?.on('keydown-UP', () => this.changeRematchChoice(-1))
+    this.input.keyboard?.on('keydown-W', () => this.changeRematchChoice(-1))
+    this.input.keyboard?.on('keydown-RIGHT', () => this.changeRematchChoice(1))
+    this.input.keyboard?.on('keydown-D', () => this.changeRematchChoice(1))
+    this.input.keyboard?.on('keydown-DOWN', () => this.changeRematchChoice(1))
+    this.input.keyboard?.on('keydown-S', () => this.changeRematchChoice(1))
   }
 
   private handlePrimaryAction() {
@@ -510,9 +565,36 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     if (this.dialogueOpen) {
+      if (this.dialogueTyping) {
+        return
+      }
+
       if (this.battleChallengeOpen) {
+        if (this.battlePromptMode === 'rematch') {
+          if (this.canChooseRematch()) {
+            this.confirmRematchChoice()
+            return
+          }
+
+          if (this.advanceDialoguePage(1)) {
+            playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
+          }
+
+          return
+        }
+
+        if (this.advanceDialoguePage(1)) {
+          playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
+          return
+        }
+
         playSfx(this, SFX_KEYS.uiConfirm)
         this.startBattleFromChallenge()
+        return
+      }
+
+      if (this.advanceDialoguePage(1)) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         return
       }
 
@@ -550,6 +632,15 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     if (this.dialogueOpen) {
+      if (this.dialogueTyping) {
+        return
+      }
+
+      if (this.advanceDialoguePage(-1)) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
+        return
+      }
+
       playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
       this.closeDialogue()
       return
@@ -562,8 +653,17 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private closeDialogue() {
+    this.dialogueTypewriteRun += 1
+    this.dialogueTyping = false
     this.dialogueOpen = false
+    this.dialoguePages = []
+    this.dialoguePageIndex = 0
+    this.dialoguePageOptions = {}
     this.battleChallengeOpen = false
+    this.battlePromptMode = null
+    this.selectedRematchChoice = 'yes'
+    this.rematchChoiceDirectionLocked = false
+    this.hideRematchChoices()
     this.dialogueBox?.setVisible(false)
   }
 
@@ -576,6 +676,8 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private processVirtualActions() {
+    this.processVirtualRematchChoice()
+
     if (consumeQueuedVirtualControlAction('y')) {
       this.toggleHelpPanel()
     }
@@ -620,12 +722,14 @@ export class InteriorScene extends Phaser.Scene {
     const defeated = hasDefeatedBattle(interactive.battle.encounterId)
 
     this.battleChallengeOpen = true
+    this.battlePromptMode = defeated ? 'rematch' : 'challenge'
     this.openDialogue(
       interactive.label || this.interior.title,
-      defeated ? encounter.reward.unlockedMessage : interactive.battle.challengeMessage,
-      this.mobileControlsEnabled
-        ? 'A challenges / B closes'
-        : 'enter / space challenges   esc closes',
+      defeated
+        ? `${encounter.reward.unlockedMessage}\n\nWould you like to battle again for fun?`
+        : interactive.battle.challengeMessage,
+      undefined,
+      { showRematchChoices: defeated },
     )
   }
 
@@ -718,20 +822,204 @@ export class InteriorScene extends Phaser.Scene {
     this.direction = deltaY > 0 ? 'down' : 'up'
   }
 
-  private openDialogue(titleText: string, message: string, hintText?: string) {
+  private openDialogue(
+    titleText: string,
+    message: string,
+    hintText?: string,
+    options: { showRematchChoices?: boolean } = {},
+  ) {
     if (!this.dialogueBox || !this.dialogueBody || !this.dialogueHint) {
       return
     }
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     title.setText(titleText)
-    this.dialogueBody.setText(this.formatDialogue(message))
-    this.dialogueHint.setText(
-      hintText ?? (this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes'),
-    )
+    this.dialoguePages = paginateDialogueText(message, INTERIOR_DIALOGUE_PAGE_MAX_CHARS)
+    this.dialoguePageIndex = 0
+    this.dialoguePageOptions = options
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.prompt?.setVisible(false)
+    this.showDialoguePage(hintText)
+  }
+
+  private showDialoguePage(hintText?: string) {
+    if (!this.dialogueHint) {
+      return
+    }
+
+    this.hideRematchChoices()
+    this.dialogueHint.setText(hintText ?? this.getDialogueHint())
+    this.typeDialogueText(this.dialoguePages[this.dialoguePageIndex] ?? '', () => {
+      this.dialogueHint?.setText(hintText ?? this.getDialogueHint())
+
+      if (this.shouldShowRematchChoices()) {
+        this.showRematchChoices()
+      }
+    })
+  }
+
+  private advanceDialoguePage(direction: -1 | 1) {
+    const nextIndex = this.dialoguePageIndex + direction
+
+    if (nextIndex < 0 || nextIndex >= this.dialoguePages.length) {
+      return false
+    }
+
+    this.dialoguePageIndex = nextIndex
+    this.showDialoguePage()
+    return true
+  }
+
+  private shouldShowRematchChoices() {
+    return Boolean(
+      this.dialoguePageOptions.showRematchChoices &&
+        this.battlePromptMode === 'rematch' &&
+        this.dialoguePageIndex === this.dialoguePages.length - 1,
+    )
+  }
+
+  private getDialogueHint() {
+    const hasPreviousPage = this.dialoguePageIndex > 0
+    const hasNextPage = this.dialoguePageIndex < this.dialoguePages.length - 1
+    const pageText =
+      this.dialoguePages.length > 1
+        ? `${this.dialoguePageIndex + 1}/${this.dialoguePages.length}   `
+        : ''
+
+    if (this.shouldShowRematchChoices()) {
+      return this.mobileControlsEnabled
+        ? `${pageText}d-pad selects   A confirms   B previous`
+        : `${pageText}arrows / wasd select   enter confirms   esc previous`
+    }
+
+    if (hasNextPage) {
+      return this.mobileControlsEnabled
+        ? `${pageText}A next   B ${hasPreviousPage ? 'previous' : 'closes'}`
+        : `${pageText}enter next   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+    }
+
+    if (this.battlePromptMode === 'challenge') {
+      return this.mobileControlsEnabled
+        ? `${pageText}A challenges   B ${hasPreviousPage ? 'previous' : 'closes'}`
+        : `${pageText}enter challenges   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+    }
+
+    return this.mobileControlsEnabled
+      ? `${pageText}A closes   B ${hasPreviousPage ? 'previous' : 'closes'}`
+      : `${pageText}enter closes   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+  }
+
+  private typeDialogueText(message: string, onComplete?: () => void) {
+    if (!this.dialogueBody) {
+      return
+    }
+
+    const run = this.dialogueTypewriteRun + 1
+    this.dialogueTypewriteRun = run
+    this.dialogueTyping = true
+
+    void typewriteText(this, this.dialogueBody, message, 28, {
+      shouldContinue: () => this.dialogueTypewriteRun === run && this.dialogueOpen,
+    }).then(() => {
+      if (this.dialogueTypewriteRun !== run) {
+        return
+      }
+
+      this.dialogueTyping = false
+      onComplete?.()
+    })
+  }
+
+  private showRematchChoices() {
+    this.selectedRematchChoice = 'yes'
+    this.rematchChoiceDirectionLocked = false
+    this.updateRematchChoices()
+    this.rematchChoiceBox?.setVisible(true)
+  }
+
+  private hideRematchChoices() {
+    this.rematchChoiceBox?.setVisible(false)
+  }
+
+  private updateRematchChoices() {
+    const choices: RematchChoice[] = ['yes', 'no']
+
+    this.rematchChoiceTexts.forEach((text, index) => {
+      const choice = choices[index]
+      const selected = choice === this.selectedRematchChoice
+      text.setText(`${selected ? '> ' : '  '}${choice === 'yes' ? 'Yes' : 'No'}`)
+      text.setColor(selected ? '#fff1a8' : '#d7e0ff')
+    })
+  }
+
+  private selectRematchChoice(choice: RematchChoice) {
+    if (!this.canChooseRematch() || this.selectedRematchChoice === choice) {
+      return
+    }
+
+    this.selectedRematchChoice = choice
+    this.updateRematchChoices()
+    playSfx(this, SFX_KEYS.uiCursor, { volume: 0.28 })
+  }
+
+  private changeRematchChoice(direction: -1 | 1) {
+    if (!this.canChooseRematch()) {
+      return
+    }
+
+    const choices: RematchChoice[] = ['yes', 'no']
+    const currentIndex = choices.indexOf(this.selectedRematchChoice)
+    const nextIndex = (currentIndex + direction + choices.length) % choices.length
+    const nextChoice = choices[nextIndex]
+
+    this.selectRematchChoice(nextChoice)
+  }
+
+  private confirmRematchChoice() {
+    if (!this.canChooseRematch()) {
+      return
+    }
+
+    if (this.selectedRematchChoice === 'yes') {
+      playSfx(this, SFX_KEYS.uiConfirm)
+      this.startBattleFromChallenge()
+      return
+    }
+
+    playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
+    this.closeDialogue()
+  }
+
+  private processVirtualRematchChoice() {
+    if (!this.canChooseRematch()) {
+      this.rematchChoiceDirectionLocked = false
+      return
+    }
+
+    const leftPressed = isHeldVirtualControlPressed('left') || isHeldVirtualControlPressed('up')
+    const rightPressed = isHeldVirtualControlPressed('right') || isHeldVirtualControlPressed('down')
+
+    if (!leftPressed && !rightPressed) {
+      this.rematchChoiceDirectionLocked = false
+      return
+    }
+
+    if (this.rematchChoiceDirectionLocked) {
+      return
+    }
+
+    this.changeRematchChoice(leftPressed ? -1 : 1)
+    this.rematchChoiceDirectionLocked = true
+  }
+
+  private canChooseRematch() {
+    return Boolean(
+      this.dialogueOpen &&
+        this.battlePromptMode === 'rematch' &&
+        !this.dialogueTyping &&
+        this.rematchChoiceBox?.visible,
+    )
   }
 
   private getInteractiveMessage(interactive: InteriorObject) {
@@ -909,14 +1197,6 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     return true
-  }
-
-  private formatDialogue(message: string) {
-    return message
-      .split('\n')
-      .map((line) => line.replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
-      .join('\n')
   }
 
   private syncPlayerDepth() {

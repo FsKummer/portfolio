@@ -1,4 +1,5 @@
 import type { InteriorDefinition } from './interiors'
+import { portfolioDialogues } from './portfolioContent'
 
 export const WORLD_SCALE = 4
 export const WORLD_TILE_SIZE = 12 * WORLD_SCALE
@@ -111,7 +112,7 @@ export const WORLD_INTERACTIONS: InteractionZone[] = [
     id: 'contact-dock',
     label: 'Contact Dock',
     trigger: 'interact',
-    message: 'The dock is the contact point. Later this will open links, contact methods, and a message flow for visitors.',
+    message: portfolioDialogues.contactSign,
     x: 436 * WORLD_SCALE,
     y: 34 * WORLD_SCALE,
     width: 180 * WORLD_SCALE,

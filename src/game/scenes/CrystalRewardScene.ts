@@ -267,7 +267,13 @@ export class CrystalRewardScene extends Phaser.Scene {
     playSfx(this, SFX_KEYS.uiConfirm)
     this.cameras.main.fadeOut(140, 0, 0, 0)
     this.time.delayedCall(150, () => {
-      this.scene.start('interior', this.returnData)
+      this.scene.start('interior', {
+        ...this.returnData,
+        initialDialogue: {
+          title: this.encounter.enemy.name,
+          message: this.getCrystalReward().unlockedMessage,
+        },
+      } satisfies InteriorSceneData)
     })
   }
 

@@ -29,6 +29,7 @@ import {
   supportsVirtualController,
 } from '../store/virtualControls'
 import { MUSIC_KEYS, SFX_KEYS, playMusic, playSfx } from '../systems/audio'
+import { paginateDialogueText, typewriteText } from '../systems/dialogue'
 import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
@@ -49,6 +50,10 @@ type WorldSceneData = {
 
 type QuestMapCrystalLocation = {
   encounterId: CrystalBattleEncounterId
+  mapPoint?: {
+    x: number
+    y: number
+  }
   zoneId: HouseZone['id']
 }
 
@@ -58,6 +63,7 @@ const PLAYER_SCALE = 3
 const WORLD_DIALOGUE_PANEL_WIDTH = 920
 const WORLD_DIALOGUE_PANEL_HEIGHT = 228
 const WORLD_DIALOGUE_PANEL_BOTTOM_MARGIN = 76
+const WORLD_DIALOGUE_PAGE_MAX_CHARS = 190
 const QUEST_GUIDE_SCALE = 3
 const QUEST_GUIDE_SPAWN_OFFSET = { x: 76, y: -12 } as const
 const QUEST_GUIDE_SPARKLE_COUNT = 22
@@ -66,7 +72,11 @@ const QUEST_MAP_HEIGHT = 420
 const QUEST_MAP_TOP = 154
 const QUEST_MAP_CRYSTALS: QuestMapCrystalLocation[] = [
   { encounterId: 'project-curator-trial', zoneId: 'projects-house' },
-  { encounterId: 'school-guide-trial', zoneId: 'about-house' },
+  {
+    encounterId: 'school-guide-trial',
+    mapPoint: { x: 350 * WORLD_SCALE, y: 58 * WORLD_SCALE },
+    zoneId: 'about-house',
+  },
   { encounterId: 'workout-buddy-trial', zoneId: 'skills-house' },
 ]
 const FINAL_GUIDE_SPARK_POINT = { x: 304, y: 240 } as const
@@ -122,6 +132,10 @@ export class WorldScene extends Phaser.Scene {
   private finalGuideDialogueReady = false
   private activeZone?: InteractionZone
   private dialogueOpen = false
+  private dialogueTyping = false
+  private dialogueTypewriteRun = 0
+  private dialoguePages: string[] = []
+  private dialoguePageIndex = 0
   private direction: Direction = 'down'
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
   private spawnPoint = WORLD_SPAWN
@@ -141,6 +155,10 @@ export class WorldScene extends Phaser.Scene {
     this.initialDialogue = data.initialDialogue
     this.activeZone = undefined
     this.dialogueOpen = false
+    this.dialogueTyping = false
+    this.dialogueTypewriteRun += 1
+    this.dialoguePages = []
+    this.dialoguePageIndex = 0
     this.questGuideDialogueLines = []
     this.questGuideLineIndex = 0
     this.questGuideIntroActive = false
@@ -659,7 +677,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private addQuestMapCrystalMarkers(overlay: Phaser.GameObjects.Container) {
-    QUEST_MAP_CRYSTALS.forEach(({ encounterId, zoneId }) => {
+    QUEST_MAP_CRYSTALS.forEach(({ encounterId, mapPoint, zoneId }) => {
       const zone = WORLD_INTERACTIONS.find(
         (interaction): interaction is HouseZone =>
           interaction.id === zoneId && interaction.trigger === 'touch',
@@ -674,7 +692,10 @@ export class WorldScene extends Phaser.Scene {
       }
 
       const crystal = encounter.reward.crystal
-      const point = this.getQuestMapPoint(zone.x + zone.width / 2, zone.y + zone.height / 2)
+      const point = this.getQuestMapPoint(
+        mapPoint?.x ?? zone.x + zone.width / 2,
+        mapPoint?.y ?? zone.y + zone.height / 2,
+      )
       const glow = this.add
         .ellipse(0, 0, 38, 28, crystal.colors.glow, 0.22)
         .setBlendMode(Phaser.BlendModes.ADD)
@@ -874,14 +895,31 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.dialogueOpen) {
       if (this.questGuideIntroActive) {
+        if (!this.questGuideDialogueReady) {
+          return
+        }
+
         playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceQuestGuideDialogue()
         return
       }
 
       if (this.finalGuideIntroActive) {
+        if (!this.finalGuideDialogueReady) {
+          return
+        }
+
         playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceFinalGuideDialogue()
+        return
+      }
+
+      if (this.dialogueTyping) {
+        return
+      }
+
+      if (this.advanceDialoguePage(1)) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         return
       }
 
@@ -908,13 +946,7 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
-    const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
-    title.setText(this.activeZone.label)
-    this.dialogueBody.setText(this.activeZone.message || portfolioDialogues.contactSign)
-    this.dialogueHint?.setText(this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes')
-    this.dialogueBox.setVisible(true)
-    this.dialogueOpen = true
-    this.interactionPrompt?.setVisible(false)
+    this.openDialogue(this.activeZone.label, this.activeZone.message || portfolioDialogues.contactSign)
     playSfx(this, SFX_KEYS.uiConfirm)
   }
 
@@ -930,14 +962,31 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.dialogueOpen) {
       if (this.questGuideIntroActive) {
+        if (!this.questGuideDialogueReady) {
+          return
+        }
+
         playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceQuestGuideDialogue()
         return
       }
 
       if (this.finalGuideIntroActive) {
+        if (!this.finalGuideDialogueReady) {
+          return
+        }
+
         playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceFinalGuideDialogue()
+        return
+      }
+
+      if (this.dialogueTyping) {
+        return
+      }
+
+      if (this.advanceDialoguePage(-1)) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         return
       }
 
@@ -953,7 +1002,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private closeDialogue() {
+    this.dialogueTypewriteRun += 1
+    this.dialogueTyping = false
     this.dialogueOpen = false
+    this.dialoguePages = []
+    this.dialoguePageIndex = 0
     this.dialogueBox?.setVisible(false)
   }
 
@@ -976,13 +1029,82 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
+    this.openDialogue(this.initialDialogue.title, this.initialDialogue.message)
+  }
+
+  private openDialogue(titleText: string, message: string, hintText?: string, onComplete?: () => void) {
+    if (!this.dialogueBox || !this.dialogueBody) {
+      return
+    }
+
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
-    title.setText(this.initialDialogue.title)
-    this.dialogueBody.setText(this.initialDialogue.message)
-    this.dialogueHint?.setText(this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes')
+    title.setText(titleText)
+    this.dialoguePages = paginateDialogueText(message, WORLD_DIALOGUE_PAGE_MAX_CHARS)
+    this.dialoguePageIndex = 0
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.interactionPrompt?.setVisible(false)
+    this.showDialoguePage(hintText, onComplete)
+  }
+
+  private showDialoguePage(hintText?: string, onComplete?: () => void) {
+    this.dialogueHint?.setText(hintText ?? this.getDialogueHint())
+    this.typeDialogueText(this.dialoguePages[this.dialoguePageIndex] ?? '', () => {
+      this.dialogueHint?.setText(hintText ?? this.getDialogueHint())
+      onComplete?.()
+    })
+  }
+
+  private advanceDialoguePage(direction: -1 | 1) {
+    const nextIndex = this.dialoguePageIndex + direction
+
+    if (nextIndex < 0 || nextIndex >= this.dialoguePages.length) {
+      return false
+    }
+
+    this.dialoguePageIndex = nextIndex
+    this.showDialoguePage()
+    return true
+  }
+
+  private getDialogueHint() {
+    const hasPreviousPage = this.dialoguePageIndex > 0
+    const hasNextPage = this.dialoguePageIndex < this.dialoguePages.length - 1
+    const pageText =
+      this.dialoguePages.length > 1
+        ? `${this.dialoguePageIndex + 1}/${this.dialoguePages.length}   `
+        : ''
+
+    if (hasNextPage) {
+      return this.mobileControlsEnabled
+        ? `${pageText}A next   B ${hasPreviousPage ? 'previous' : 'closes'}`
+        : `${pageText}enter next   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+    }
+
+    return this.mobileControlsEnabled
+      ? `${pageText}A closes   B ${hasPreviousPage ? 'previous' : 'closes'}`
+      : `${pageText}enter closes   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+  }
+
+  private typeDialogueText(message: string, onComplete?: () => void) {
+    if (!this.dialogueBody) {
+      return
+    }
+
+    const run = this.dialogueTypewriteRun + 1
+    this.dialogueTypewriteRun = run
+    this.dialogueTyping = true
+
+    void typewriteText(this, this.dialogueBody, message, 28, {
+      shouldContinue: () => this.dialogueTypewriteRun === run && this.dialogueOpen,
+    }).then(() => {
+      if (this.dialogueTypewriteRun !== run) {
+        return
+      }
+
+      this.dialogueTyping = false
+      onComplete?.()
+    })
   }
 
   private startFinalGuideIntro() {
@@ -1061,7 +1183,6 @@ export class WorldScene extends Phaser.Scene {
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     const finalLine = this.finalGuideLineIndex === this.finalGuideDialogueLines.length - 1
     title.setText('Mysterious Guide')
-    this.dialogueBody.setText(line)
     this.dialogueHint?.setText(
       finalLine
         ? this.mobileControlsEnabled
@@ -1072,7 +1193,10 @@ export class WorldScene extends Phaser.Scene {
           : 'enter / space continues',
     )
     this.dialogueBox.setVisible(true)
-    this.finalGuideDialogueReady = true
+    this.finalGuideDialogueReady = false
+    this.typeDialogueText(line, () => {
+      this.finalGuideDialogueReady = true
+    })
   }
 
   private advanceFinalGuideDialogue() {
@@ -1096,6 +1220,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.dialogueOpen = false
+    this.dialogueTypewriteRun += 1
+    this.dialogueTyping = false
     this.finalGuideIntroActive = false
     this.finalGuideDialogueReady = false
     this.transitioning = true
@@ -1185,7 +1311,6 @@ export class WorldScene extends Phaser.Scene {
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     const finalLine = this.questGuideLineIndex === this.questGuideDialogueLines.length - 1
     title.setText('Mysterious Guide')
-    this.dialogueBody.setText(line)
     this.dialogueHint?.setText(
       finalLine
         ? this.mobileControlsEnabled
@@ -1196,7 +1321,10 @@ export class WorldScene extends Phaser.Scene {
           : 'enter / space continues',
     )
     this.dialogueBox.setVisible(true)
-    this.questGuideDialogueReady = true
+    this.questGuideDialogueReady = false
+    this.typeDialogueText(line, () => {
+      this.questGuideDialogueReady = true
+    })
   }
 
   private advanceQuestGuideDialogue() {
@@ -1211,6 +1339,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.dialogueOpen = false
+    this.dialogueTypewriteRun += 1
+    this.dialogueTyping = false
     this.questGuideIntroActive = false
     this.questGuideDialogueReady = false
     this.dialogueBox?.setVisible(false)
