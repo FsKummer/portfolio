@@ -14,6 +14,7 @@ import {
   consumeQueuedVirtualControlAction,
   setGameplayControlContext,
 } from '../store/virtualControls'
+import { SFX_KEYS, playSfx, stopMusic } from '../systems/audio'
 import type { InteriorSceneData } from './InteriorScene'
 
 type CrystalRewardSceneData = {
@@ -48,6 +49,8 @@ export class CrystalRewardScene extends Phaser.Scene {
     const collectedCrystalCount = this.getCollectedBattleCrystalCount()
     const totalCrystalCount = this.getTotalBattleCrystalCount()
     this.cameras.main.setBackgroundColor('#030715')
+    stopMusic()
+    playSfx(this, SFX_KEYS.crystalReward, { volume: 0.52 })
     this.createStarfield()
     this.createCrystal(crystal.name, crystal.colors, alreadyHadCrystal)
     this.createDialogue(crystal.name, alreadyHadCrystal, collectedCrystalCount, totalCrystalCount)
@@ -261,6 +264,7 @@ export class CrystalRewardScene extends Phaser.Scene {
     }
 
     this.returning = true
+    playSfx(this, SFX_KEYS.uiConfirm)
     this.cameras.main.fadeOut(140, 0, 0, 0)
     this.time.delayedCall(150, () => {
       this.scene.start('interior', this.returnData)

@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { preloadAudio } from '../systems/audio'
 
 const DIRECTION_SEGMENTS = {
   left: { start: 0, end: 5 },
@@ -55,6 +56,7 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 32,
       frameHeight: 32,
     })
+    preloadAudio(this)
   }
 
   create() {

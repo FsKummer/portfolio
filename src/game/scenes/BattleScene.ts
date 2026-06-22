@@ -17,6 +17,7 @@ import {
   isHeldVirtualControlPressed,
   setGameplayControlContext,
 } from '../store/virtualControls'
+import { MUSIC_KEYS, SFX_KEYS, playMusic, playSfx } from '../systems/audio'
 import { playSquareRevealTransition } from '../systems/squareTransition'
 import type { InteriorSceneData, InteriorSceneDialogue } from './InteriorScene'
 
@@ -122,6 +123,11 @@ export class BattleScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#050913')
     this.turnLocked = true
+    playMusic(
+      this,
+      this.encounter.reward.kind === 'final' ? MUSIC_KEYS.finalBoss : MUSIC_KEYS.battle,
+    )
+    playSfx(this, SFX_KEYS.battleStart, { volume: 0.48 })
     this.createBattlefield()
     this.createStatusPanels()
     this.createCommandMenu()
@@ -137,6 +143,7 @@ export class BattleScene extends Phaser.Scene {
 
       this.turnLocked = false
       this.refreshCommandMenu()
+      playSfx(this, SFX_KEYS.battleTurn, { volume: 0.34 })
     })
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupSceneControls, this)
     this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupSceneControls, this)
@@ -365,6 +372,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (consumeQueuedVirtualControlAction('b')) {
+      playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
       this.pushLog('The guide keeps the trial focused.')
     }
   }
@@ -377,6 +385,7 @@ export class BattleScene extends Phaser.Scene {
     this.selectedActionIndex =
       (this.selectedActionIndex + direction + this.encounter.actions.length) %
       this.encounter.actions.length
+    playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
     this.refreshCommandMenu()
   }
 
@@ -400,10 +409,12 @@ export class BattleScene extends Phaser.Scene {
       const mpCost = effect.mpCost ?? 0
 
       if (this.player.mp < mpCost) {
+        playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
         this.pushLog('Not enough MP.')
         return
       }
 
+      playSfx(this, SFX_KEYS.uiConfirm)
       this.turnLocked = true
       this.player.mp -= mpCost
       void this.runDamageAction(action.id, effect.amount)
@@ -411,13 +422,16 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (this.itemUsed) {
+      playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
       this.pushLog('No field potion remains.')
       return
     }
 
+    playSfx(this, SFX_KEYS.uiConfirm)
     this.turnLocked = true
     this.itemUsed = true
     const healed = this.applyHealing(this.player, effect.amount)
+    playSfx(this, SFX_KEYS.itemUse, { volume: 0.42 })
     this.pushLog(
       healed > 0
         ? `You use a field potion and recover ${healed} HP.`
@@ -468,6 +482,7 @@ export class BattleScene extends Phaser.Scene {
 
     const damage = this.applyDamage(this.player, this.enemy.attackDamage)
     this.showDamageNumber(this.playerSprite, damage.toString(), '#ffb4a8')
+    playSfx(this, SFX_KEYS.damagePlayer, { volume: 0.42 })
     this.pushLog(`${this.enemy.name} counters for ${damage} damage.`)
     this.refreshUi()
 
@@ -478,11 +493,13 @@ export class BattleScene extends Phaser.Scene {
 
     this.turnLocked = false
     this.refreshCommandMenu()
+    playSfx(this, SFX_KEYS.battleTurn, { volume: 0.34 })
   }
 
   private finishVictory() {
     this.battleEnded = true
     markBattleDefeated(this.encounter.reward.defeatedBattleId)
+    playSfx(this, SFX_KEYS.battleVictory, { volume: 0.5 })
     this.pushLog(this.encounter.victoryLog)
     this.refreshCommandMenu()
     this.time.delayedCall(1400, () => {
@@ -497,6 +514,7 @@ export class BattleScene extends Phaser.Scene {
 
   private finishDefeat() {
     this.battleEnded = true
+    playSfx(this, SFX_KEYS.battleDefeat, { volume: 0.5 })
     this.pushLog('You fall back from the trial.')
     this.refreshCommandMenu()
     this.time.delayedCall(1400, () =>
@@ -600,6 +618,7 @@ export class BattleScene extends Phaser.Scene {
       .normalize()
       .scale(78)
 
+    playSfx(this, SFX_KEYS.attackSwing, { volume: 0.38 })
     this.tweens.add({
       targets: attacker,
       duration: 120,
@@ -607,6 +626,7 @@ export class BattleScene extends Phaser.Scene {
       x: startX + lunge.x,
       y: startY + lunge.y,
       onComplete: () => {
+        playSfx(this, SFX_KEYS.attackHit, { volume: 0.44 })
         this.createImpactBurst(target.x, target.y - 40, 0xfff1a8)
         this.flashSprite(target, 0xffffff)
         this.tweens.add({
@@ -634,6 +654,9 @@ export class BattleScene extends Phaser.Scene {
       .setDepth(35)
     const aura = this.add.circle(projectile.x, projectile.y, 24, 0x7eb6ff, 0.22).setDepth(34)
 
+    playSfx(this, SFX_KEYS.magicCast, { volume: 0.42 })
+    this.time.delayedCall(120, () => playSfx(this, SFX_KEYS.magicProjectile, { volume: 0.34 }))
+
     this.tweens.add({
       targets: [projectile, aura],
       duration: 260,
@@ -643,6 +666,7 @@ export class BattleScene extends Phaser.Scene {
       onComplete: () => {
         projectile.destroy()
         aura.destroy()
+        playSfx(this, SFX_KEYS.magicImpact, { volume: 0.44 })
         this.createImpactBurst(target.x, target.y - 50, 0x9bd7ff)
         this.flashSprite(target, 0x9bd7ff)
         onComplete()

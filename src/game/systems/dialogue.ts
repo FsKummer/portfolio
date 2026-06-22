@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { SFX_KEYS, playSfx } from './audio'
 
 export function typewriteText(
   scene: Phaser.Scene,
@@ -17,6 +18,11 @@ export function typewriteText(
       callback: () => {
         index += 1
         textNode.setText(text.slice(0, index))
+
+        const currentCharacter = text[index - 1]
+        if (currentCharacter?.trim() && index % 2 === 0) {
+          playSfx(scene, SFX_KEYS.textBlip, { volume: 0.18 })
+        }
 
         if (index >= text.length) {
           resolve()
@@ -41,6 +47,7 @@ export function waitForConfirm(scene: Phaser.Scene) {
       }
 
       resolved = true
+      playSfx(scene, SFX_KEYS.textAdvance, { volume: 0.28 })
       cleanup()
       resolve()
     }

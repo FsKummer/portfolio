@@ -28,6 +28,7 @@ import {
   setGameplayControlContext,
   supportsVirtualController,
 } from '../store/virtualControls'
+import { MUSIC_KEYS, SFX_KEYS, playMusic, playSfx } from '../systems/audio'
 import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
@@ -128,6 +129,8 @@ export class WorldScene extends Phaser.Scene {
   private transitioning = false
   private suppressedHouseEntryZoneId?: HouseZone['id']
   private mobileControlsEnabled = false
+  private lastStepSoundAt = 0
+  private stepSoundIndex = 0
 
   constructor() {
     super('world')
@@ -157,6 +160,8 @@ export class WorldScene extends Phaser.Scene {
     this.direction = 'down'
     this.transitioning = false
     this.suppressedHouseEntryZoneId = data.suppressHouseEntryZoneId
+    this.lastStepSoundAt = 0
+    this.stepSoundIndex = 0
   }
 
   create() {
@@ -166,6 +171,7 @@ export class WorldScene extends Phaser.Scene {
     this.mobileControlsEnabled = supportsVirtualController()
 
     this.cameras.main.setBackgroundColor('#77d8e7')
+    playMusic(this, MUSIC_KEYS.overworld)
     this.cursors = this.input.keyboard?.createCursorKeys()
     this.movementKeys = this.input.keyboard?.addKeys({
       up: 'W',
@@ -802,11 +808,13 @@ export class WorldScene extends Phaser.Scene {
     this.interactionPrompt?.setVisible(false)
     this.helpPanel?.setVisible(false)
     this.refreshQuestMap()
+    playSfx(this, SFX_KEYS.uiConfirm)
   }
 
   private closeQuestMap() {
     this.questMapOpen = false
     this.questMapOverlay?.setVisible(false)
+    playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
   }
 
   private refreshQuestMap() {
@@ -866,20 +874,24 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.dialogueOpen) {
       if (this.questGuideIntroActive) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceQuestGuideDialogue()
         return
       }
 
       if (this.finalGuideIntroActive) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceFinalGuideDialogue()
         return
       }
 
+      playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
       this.closeDialogue()
       return
     }
 
     if (this.activeFinalSpark) {
+      playSfx(this, SFX_KEYS.uiConfirm)
       this.startFinalGuideIntro()
       return
     }
@@ -903,6 +915,7 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBox.setVisible(true)
     this.dialogueOpen = true
     this.interactionPrompt?.setVisible(false)
+    playSfx(this, SFX_KEYS.uiConfirm)
   }
 
   private handleBackAction() {
@@ -917,21 +930,25 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.dialogueOpen) {
       if (this.questGuideIntroActive) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceQuestGuideDialogue()
         return
       }
 
       if (this.finalGuideIntroActive) {
+        playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
         this.advanceFinalGuideDialogue()
         return
       }
 
+      playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
       this.closeDialogue()
       return
     }
 
     if (this.helpPanel?.visible) {
       this.helpPanel.setVisible(false)
+      playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
     }
   }
 
@@ -993,6 +1010,7 @@ export class WorldScene extends Phaser.Scene {
     aura.setAlpha(0).setScale(0.25)
     shadow.setAlpha(0).setScale(0.35, 1)
     this.createGuideLightBurst(FINAL_GUIDE_SPARK_POINT.x, FINAL_GUIDE_SPARK_POINT.y)
+    playSfx(this, SFX_KEYS.finalUnlock, { volume: 0.5 })
 
     this.tweens.add({
       targets: guide,
@@ -1068,6 +1086,7 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
+    playSfx(this, SFX_KEYS.uiConfirm)
     this.startFinalGuideBattle()
   }
 
@@ -1196,6 +1215,7 @@ export class WorldScene extends Phaser.Scene {
     this.questGuideDialogueReady = false
     this.dialogueBox?.setVisible(false)
     this.questMapGranted = markQuestGuideIntroSeen().progress.questMapGranted
+    playSfx(this, SFX_KEYS.crystalReward, { volume: 0.46 })
     this.vanishQuestGuide()
   }
 
@@ -1215,6 +1235,7 @@ export class WorldScene extends Phaser.Scene {
     this.questGuideVanishActive = true
     this.tweens.killTweensOf(tweenTargets)
     this.createGuideVanishSparkles(guide.x, guide.y)
+    playSfx(this, SFX_KEYS.magicImpact, { volume: 0.34 })
 
     guide.setTint(0xcdd8ff)
     this.tweens.add({
@@ -1325,6 +1346,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.transitioning = true
     this.player?.setVelocity(0, 0)
+    playSfx(this, SFX_KEYS.transitionDoor, { volume: 0.34 })
     this.cameras.main.fadeOut(120, 0, 0, 0)
     this.time.delayedCall(130, () => {
       this.scene.start('interior', {
@@ -1356,6 +1378,18 @@ export class WorldScene extends Phaser.Scene {
   private playWalkAnimation() {
     const animationDirection = this.getAnimationDirection()
     this.player?.anims.play(`${this.playerAnimPrefix}-walk-${animationDirection}`, true)
+    this.playStepSound()
+  }
+
+  private playStepSound() {
+    if (this.time.now - this.lastStepSoundAt < 260) {
+      return
+    }
+
+    const key = this.stepSoundIndex % 2 === 0 ? SFX_KEYS.walkGrassA : SFX_KEYS.walkGrassB
+    this.stepSoundIndex += 1
+    this.lastStepSoundAt = this.time.now
+    playSfx(this, key, { volume: 0.16 })
   }
 
   private updateActiveZone() {

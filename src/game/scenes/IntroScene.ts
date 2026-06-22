@@ -8,6 +8,7 @@ import {
   resetVisitorProfile,
   updateVisitorProfile,
 } from '../store/sessionStore'
+import { SFX_KEYS, playSfx } from '../systems/audio'
 
 type StartMenuOption = 'continue' | 'new-game'
 
@@ -153,9 +154,16 @@ export class IntroScene extends Phaser.Scene {
         return
       }
 
-      this.selectedStartMenuIndex = this.startMenuButtons.findIndex(
+      const nextIndex = this.startMenuButtons.findIndex(
         (button) => button.option === option,
       )
+
+      if (nextIndex === this.selectedStartMenuIndex) {
+        return
+      }
+
+      this.selectedStartMenuIndex = nextIndex
+      playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
       this.applyStartMenuSelection()
     })
     container.on('pointerdown', () => this.chooseStartMenuOption(option))
@@ -210,6 +218,7 @@ export class IntroScene extends Phaser.Scene {
       0,
       this.startMenuButtons.length,
     )
+    playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
     this.applyStartMenuSelection()
   }
 
@@ -234,6 +243,7 @@ export class IntroScene extends Phaser.Scene {
 
     this.startMenuActive = false
     this.removeStartMenuInput()
+    playSfx(this, SFX_KEYS.uiConfirm)
 
     if (option === 'continue') {
       this.scene.start('world')
@@ -323,9 +333,11 @@ export class IntroScene extends Phaser.Scene {
           .replace(/\s+/g, ' ')
 
         if (!sanitizedName) {
+          playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
           return
         }
 
+        playSfx(this, SFX_KEYS.uiConfirm)
         this.nameForm?.destroy()
         this.nameForm = undefined
         resolve(sanitizedName.slice(0, 14))

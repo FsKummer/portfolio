@@ -12,6 +12,7 @@ import {
   setGameplayControlContext,
   supportsVirtualController,
 } from '../store/virtualControls'
+import { SFX_KEYS, playSfx, stopMusic } from '../systems/audio'
 import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
@@ -95,6 +96,8 @@ export class InteriorScene extends Phaser.Scene {
   private transitioning = false
   private battlePositioning = false
   private mobileControlsEnabled = false
+  private lastStepSoundAt = 0
+  private stepSoundIndex = 0
 
   constructor() {
     super('interior')
@@ -114,10 +117,13 @@ export class InteriorScene extends Phaser.Scene {
     this.direction = 'down'
     this.transitioning = false
     this.battlePositioning = false
+    this.lastStepSoundAt = 0
+    this.stepSoundIndex = 0
   }
 
   create() {
     this.cameras.main.setBackgroundColor('#050913')
+    stopMusic()
     this.mobileControlsEnabled = supportsVirtualController()
     this.cursors = this.input.keyboard?.createCursorKeys()
     this.movementKeys = this.input.keyboard?.addKeys({
@@ -505,10 +511,12 @@ export class InteriorScene extends Phaser.Scene {
 
     if (this.dialogueOpen) {
       if (this.battleChallengeOpen) {
+        playSfx(this, SFX_KEYS.uiConfirm)
         this.startBattleFromChallenge()
         return
       }
 
+      playSfx(this, SFX_KEYS.textAdvance, { volume: 0.28 })
       this.closeDialogue()
       return
     }
@@ -524,10 +532,12 @@ export class InteriorScene extends Phaser.Scene {
     const activeInteractive = this.activeInteractive
 
     if (activeInteractive.battle) {
+      playSfx(this, SFX_KEYS.uiConfirm)
       this.openBattleChallenge(activeInteractive)
       return
     }
 
+    playSfx(this, SFX_KEYS.uiConfirm)
     this.openDialogue(
       activeInteractive.label || this.interior.title,
       this.getInteractiveMessage(activeInteractive),
@@ -540,12 +550,14 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     if (this.dialogueOpen) {
+      playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
       this.closeDialogue()
       return
     }
 
     if (this.helpPanel?.visible) {
       this.helpPanel.setVisible(false)
+      playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
     }
   }
 
@@ -584,6 +596,7 @@ export class InteriorScene extends Phaser.Scene {
 
     this.transitioning = true
     this.player?.setVelocity(0, 0)
+    playSfx(this, SFX_KEYS.transitionDoor, { volume: 0.34 })
     this.cameras.main.fadeOut(120, 0, 0, 0)
     this.time.delayedCall(130, () => {
       this.scene.start('world', { spawn: this.returnTo, suppressHouseEntryZoneId: this.returnZoneId })
@@ -776,6 +789,18 @@ export class InteriorScene extends Phaser.Scene {
 
   private playWalkAnimation() {
     this.player?.anims.play(`${this.playerAnimPrefix}-walk-${this.getAnimationDirection()}`, true)
+    this.playStepSound()
+  }
+
+  private playStepSound() {
+    if (this.time.now - this.lastStepSoundAt < 260) {
+      return
+    }
+
+    const key = this.stepSoundIndex % 2 === 0 ? SFX_KEYS.walkFloorA : SFX_KEYS.walkFloorB
+    this.stepSoundIndex += 1
+    this.lastStepSoundAt = this.time.now
+    playSfx(this, key, { volume: 0.14 })
   }
 
   private getBodyBounds() {

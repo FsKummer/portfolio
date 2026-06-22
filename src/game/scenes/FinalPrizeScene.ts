@@ -7,6 +7,7 @@ import {
   consumeQueuedVirtualControlAction,
   setGameplayControlContext,
 } from '../store/virtualControls'
+import { SFX_KEYS, playSfx, stopMusic } from '../systems/audio'
 import type { WorldBattleReturnData } from './BattleScene'
 
 type FinalPrizeSceneData = {
@@ -31,6 +32,8 @@ export class FinalPrizeScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#030715')
+    stopMusic()
+    playSfx(this, SFX_KEYS.finalUnlock, { volume: 0.52 })
     this.createStarfield()
     this.createGuide()
     this.createPrizePanel()
@@ -175,6 +178,7 @@ export class FinalPrizeScene extends Phaser.Scene {
   }
 
   private openScheduleLink() {
+    playSfx(this, SFX_KEYS.uiConfirm)
     window.open(SCHEDULE_CALL_URL, '_blank', 'noopener,noreferrer')
   }
 
@@ -184,6 +188,7 @@ export class FinalPrizeScene extends Phaser.Scene {
     }
 
     this.returning = true
+    playSfx(this, SFX_KEYS.uiCancel, { volume: 0.32 })
     this.cameras.main.fadeOut(140, 0, 0, 0)
     this.time.delayedCall(150, () => {
       this.scene.start('world', {

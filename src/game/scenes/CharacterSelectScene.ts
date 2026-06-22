@@ -10,6 +10,7 @@ import {
   loadVisitorProfile,
   updateVisitorProfile,
 } from '../store/sessionStore'
+import { SFX_KEYS, playSfx } from '../systems/audio'
 
 type CardKey = AvatarChoice
 
@@ -145,7 +146,14 @@ export class CharacterSelectScene extends Phaser.Scene {
         return
       }
 
-      this.selectedIndex = this.cards.findIndex((card) => card.key === key)
+      const nextIndex = this.cards.findIndex((card) => card.key === key)
+
+      if (nextIndex === this.selectedIndex) {
+        return
+      }
+
+      this.selectedIndex = nextIndex
+      playSfx(this, SFX_KEYS.uiCursor, { volume: 0.28 })
       this.applySelectionState()
     })
 
@@ -157,6 +165,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.selectedIndex = this.cards.findIndex((card) => card.key === key)
       this.applySelectionState()
       this.selectionLocked = true
+      playSfx(this, SFX_KEYS.uiConfirm)
     })
 
     return {
@@ -186,6 +195,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       0,
       this.cards.length,
     )
+    playSfx(this, SFX_KEYS.uiCursor, { volume: 0.28 })
     this.applySelectionState()
   }
 
@@ -195,6 +205,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     }
 
     this.selectionLocked = true
+    playSfx(this, SFX_KEYS.uiConfirm)
   }
 
   private waitForSelection() {
