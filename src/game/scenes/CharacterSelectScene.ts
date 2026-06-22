@@ -7,6 +7,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { typewriteText, waitForConfirm } from '../systems/dialogue'
 import {
   type AvatarChoice,
+  type LanguageCode,
   loadVisitorProfile,
   updateVisitorProfile,
 } from '../store/sessionStore'
@@ -31,6 +32,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private selectedIndex = 0
 
   private selectionLocked = false
+  private language: LanguageCode = 'en'
 
   constructor() {
     super('character-select')
@@ -39,6 +41,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   create() {
     const profile = loadVisitorProfile()
 
+    this.language = profile.language
     this.selectedIndex = profile.avatar === 'girl' ? 1 : 0
     this.cameras.main.setBackgroundColor('#070b18')
     this.createBackdrop()
@@ -53,10 +56,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       return
     }
 
-    for (const line of characterSelectPrompt(visitorName)) {
+    for (const line of characterSelectPrompt(visitorName, this.language)) {
       this.promptText.setText('')
       await typewriteText(this, this.dialogueText, line)
-      this.promptText.setText('choose with arrows or click a card')
+      this.promptText.setText(this.getSelectionPromptText())
       await this.waitForSelection()
     }
 
@@ -65,8 +68,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.selectionLocked = true
 
     this.promptText.setText('')
-    await typewriteText(this, this.dialogueText, characterSelectConfirm(visitorName))
-    this.promptText.setText('press enter to start')
+    await typewriteText(this, this.dialogueText, characterSelectConfirm(visitorName, this.language))
+    this.promptText.setText(this.getStartPromptText())
     await waitForConfirm(this)
 
     this.scene.start('world')
@@ -74,12 +77,60 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   private createBackdrop() {
     this.add
-      .text(GAME_WIDTH / 2, 92, 'choose your traveler', {
+      .text(GAME_WIDTH / 2, 92, this.getBackdropTitle(), {
         fontFamily: 'monospace',
         fontSize: '32px',
         color: '#f4f7ff',
       })
       .setOrigin(0.5)
+  }
+
+  private getBackdropTitle() {
+    if (this.language === 'es') {
+      return 'elige tu viajero'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'escolha seu viajante'
+    }
+
+    return 'choose your traveler'
+  }
+
+  private getSelectionPromptText() {
+    if (this.language === 'es') {
+      return 'elige con flechas o haz clic'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'escolha com setas ou clique'
+    }
+
+    return 'choose with arrows or click a card'
+  }
+
+  private getStartPromptText() {
+    if (this.language === 'es') {
+      return 'presiona enter para empezar'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'aperte enter para começar'
+    }
+
+    return 'press enter to start'
+  }
+
+  private getAvatarLabel(key: CardKey) {
+    if (this.language === 'es') {
+      return key === 'boy' ? 'chico' : 'chica'
+    }
+
+    if (this.language === 'pt-BR') {
+      return key === 'boy' ? 'menino' : 'menina'
+    }
+
+    return key
   }
 
   private createDialogueFrame() {
@@ -127,7 +178,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     const portrait = this.add.sprite(0, -18, `${spritePrefix}-idle`, 18).setScale(4)
     portrait.play(`${spritePrefix}-idle-down`)
     const label = this.add
-      .text(0, 96, key, {
+      .text(0, 96, this.getAvatarLabel(key), {
         fontFamily: 'monospace',
         fontSize: '24px',
         color: accent,

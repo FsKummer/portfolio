@@ -1,4 +1,5 @@
 import type { InteriorDefinition } from './interiors'
+import type { LanguageCode } from '../store/sessionStore'
 
 export type BattleActionId = 'attack' | 'magic' | 'item'
 
@@ -305,4 +306,258 @@ Nowadays he still enjoys an occasional game, but most days the routine is simple
         'The guide opens the last path: contact Felipe by email, LinkedIn, GitHub, CV, or a 15 minute call.',
     },
   },
+}
+
+type BattleEncounterLocalizedText = {
+  crystalName?: string
+  defeatMessage: string
+  enemyName: string
+  introLog: string
+  rewardUnlockedMessage: string
+  title: string
+  victoryLog: string
+}
+
+const battleActionLabelsByLanguage: Record<LanguageCode, Record<BattleActionId, string>> = {
+  en: {
+    attack: 'Attack',
+    magic: 'Magic',
+    item: 'Item',
+  },
+  es: {
+    attack: 'Atacar',
+    magic: 'Magia',
+    item: 'Objeto',
+  },
+  'pt-BR': {
+    attack: 'Atacar',
+    magic: 'Magia',
+    item: 'Item',
+  },
+}
+
+const battleEncounterTextByLanguage: Record<
+  LanguageCode,
+  Record<BattleEncounterId, BattleEncounterLocalizedText>
+> = {
+  en: {
+    'project-curator-trial': {
+      title: BATTLE_ENCOUNTERS['project-curator-trial'].title,
+      introLog: BATTLE_ENCOUNTERS['project-curator-trial'].introLog,
+      victoryLog: BATTLE_ENCOUNTERS['project-curator-trial'].victoryLog,
+      defeatMessage: BATTLE_ENCOUNTERS['project-curator-trial'].defeatMessage,
+      enemyName: BATTLE_ENCOUNTERS['project-curator-trial'].enemy.name,
+      crystalName:
+        BATTLE_ENCOUNTERS['project-curator-trial'].reward.kind === 'crystal'
+          ? BATTLE_ENCOUNTERS['project-curator-trial'].reward.crystal.name
+          : undefined,
+      rewardUnlockedMessage: BATTLE_ENCOUNTERS['project-curator-trial'].reward.unlockedMessage,
+    },
+    'school-guide-trial': {
+      title: BATTLE_ENCOUNTERS['school-guide-trial'].title,
+      introLog: BATTLE_ENCOUNTERS['school-guide-trial'].introLog,
+      victoryLog: BATTLE_ENCOUNTERS['school-guide-trial'].victoryLog,
+      defeatMessage: BATTLE_ENCOUNTERS['school-guide-trial'].defeatMessage,
+      enemyName: BATTLE_ENCOUNTERS['school-guide-trial'].enemy.name,
+      crystalName:
+        BATTLE_ENCOUNTERS['school-guide-trial'].reward.kind === 'crystal'
+          ? BATTLE_ENCOUNTERS['school-guide-trial'].reward.crystal.name
+          : undefined,
+      rewardUnlockedMessage: BATTLE_ENCOUNTERS['school-guide-trial'].reward.unlockedMessage,
+    },
+    'workout-buddy-trial': {
+      title: BATTLE_ENCOUNTERS['workout-buddy-trial'].title,
+      introLog: BATTLE_ENCOUNTERS['workout-buddy-trial'].introLog,
+      victoryLog: BATTLE_ENCOUNTERS['workout-buddy-trial'].victoryLog,
+      defeatMessage: BATTLE_ENCOUNTERS['workout-buddy-trial'].defeatMessage,
+      enemyName: BATTLE_ENCOUNTERS['workout-buddy-trial'].enemy.name,
+      crystalName:
+        BATTLE_ENCOUNTERS['workout-buddy-trial'].reward.kind === 'crystal'
+          ? BATTLE_ENCOUNTERS['workout-buddy-trial'].reward.crystal.name
+          : undefined,
+      rewardUnlockedMessage: BATTLE_ENCOUNTERS['workout-buddy-trial'].reward.unlockedMessage,
+    },
+    'mystic-guide-final': {
+      title: BATTLE_ENCOUNTERS['mystic-guide-final'].title,
+      introLog: BATTLE_ENCOUNTERS['mystic-guide-final'].introLog,
+      victoryLog: BATTLE_ENCOUNTERS['mystic-guide-final'].victoryLog,
+      defeatMessage: BATTLE_ENCOUNTERS['mystic-guide-final'].defeatMessage,
+      enemyName: BATTLE_ENCOUNTERS['mystic-guide-final'].enemy.name,
+      rewardUnlockedMessage: BATTLE_ENCOUNTERS['mystic-guide-final'].reward.unlockedMessage,
+    },
+  },
+  es: {
+    'project-curator-trial': {
+      title: 'Prueba del Curador de Proyectos',
+      introLog: 'El curador de proyectos pone a prueba tu ojo para el trabajo terminado.',
+      victoryLog: 'El curador sonríe. El primer cristal del portfolio es tuyo.',
+      defeatMessage:
+        'El curador cierra el expediente. "Replantea el plan y vuelve a intentar la prueba."',
+      enemyName: 'Curador de Proyectos',
+      crystalName: 'Cristal Ruby Craft',
+      rewardUnlockedMessage:
+        `El cristal de oficio de Felipe no representa una sola funcionalidad. En Runa, él construye y opera sistemas de nómina y RH de los que dependen empresas reales.
+
+Su trabajo vive donde se cruzan producto, cumplimiento y operación: servicios en Rails, interfaces en React, cambios de base de datos, reportes, reglas fiscales, integraciones, CI/CD, observabilidad y soporte de producción.
+
+El curador llama a eso oficio: entender el problema de negocio, enviar el arreglo confiable más pequeño, observar el sistema en producción y seguir mejorando la herramienta para quienes dependen de ella.`,
+    },
+    'school-guide-trial': {
+      title: 'Prueba del Guía de la Escuela',
+      introLog: 'El guía de la escuela prueba si estás listo para escuchar más.',
+      victoryLog: 'El guía asiente. Ganaste la siguiente página de Felipe Kummer.',
+      defeatMessage:
+        'El guía baja su libro. "Cerca, pero todavía no. Vuelve cuando estés listo para preguntar otra vez."',
+      enemyName: 'Guía de la Escuela',
+      crystalName: 'Cristal de Conocimiento AWS',
+      rewardUnlockedMessage:
+        `La historia de Felipe empieza mucho antes del código. Desde pequeño mostró talento natural para matemáticas, física e idiomas, además de una capacidad poco común para aprender rápido cuando un desafío captaba su atención.
+
+De joven se propuso convertirse en Oficial de la Marina Mercante. Ganó su lugar mediante un examen de ingreso difícil y competitivo, y luego se preparó para una vida donde la disciplina, la precisión y la responsabilidad importan todos los días.
+
+En el mar se convirtió en Oficial de Náutica a bordo de buques metaneros. Navegación, operaciones de carga, procedimientos de seguridad, respuesta a emergencias y tripulaciones multinacionales le enseñaron a mantener la calma, comunicarse con claridad y respetar sistemas complejos.
+
+En 2022 eligió un nuevo horizonte: tecnología. Empezó con CS50 de Harvard, construyendo los fundamentos que luego lo llevaron al bootcamp de desarrollo web full stack de Le Wagon.
+
+Desde entonces no dejó de avanzar: React, Go, desarrollo móvil, DevOps, Python, infraestructura cloud y cualquier herramienta que el siguiente problema exigiera. Disfruta aprender porque cada herramienta nueva es otra forma de resolver un problema real.
+
+En 2024 volvió a Le Wagon para Data Engineering, ampliando su conocimiento sobre pipelines de datos, warehouses, analítica y la infraestructura alrededor del trabajo moderno con datos.`,
+    },
+    'workout-buddy-trial': {
+      title: 'Prueba del Compañero de Entrenamiento',
+      introLog: 'El compañero de entrenamiento convierte la disciplina en un combate amistoso.',
+      victoryLog: 'El compañero asiente. Otro cristal se une a tu camino.',
+      defeatMessage:
+        'El compañero te ofrece una mano. "Reacomoda tu postura y desafíame otra vez."',
+      enemyName: 'Compañero de Entrenamiento',
+      crystalName: 'Cristal de Vitalidad Esmeralda',
+      rewardUnlockedMessage:
+        `El cristal de vitalidad de Felipe viene de algo más que el código. Siempre se sintió atraído por el deporte, especialmente el básquetbol.
+
+Durante la escuela y la universidad jugó básquetbol competitivo, construyó disciplina junto a sus equipos y ganó muchas medallas por el camino.
+
+El juego le enseñó ritmo, resiliencia, comunicación y cómo seguir siendo útil bajo presión, hábitos que todavía aparecen en su trabajo de ingeniería.
+
+Hoy todavía disfruta un partido ocasional, pero la rutina de la mayoría de los días es más simple: llegar al gimnasio, entrenar con constancia y mantener el cuerpo listo para el próximo desafío.`,
+    },
+    'mystic-guide-final': {
+      title: 'Prueba del Guía Misterioso',
+      introLog: 'El guía misterioso levanta la luz final.',
+      victoryLog: 'El guía se inclina. El premio final es tuyo.',
+      defeatMessage:
+        'El guía estabiliza la luz. "Tus cristales son verdaderos. Vuelve cuando tu enfoque sea más agudo."',
+      enemyName: 'Guía Misterioso',
+      rewardUnlockedMessage:
+        'El guía abre el último camino: contacta a Felipe por email, LinkedIn, GitHub, CV o una llamada de 15 minutos.',
+    },
+  },
+  'pt-BR': {
+    'project-curator-trial': {
+      title: 'Prova do Curador de Projetos',
+      introLog: 'O curador de projetos testa seu olhar para trabalho bem acabado.',
+      victoryLog: 'O curador sorri. O primeiro cristal do portfolio é seu.',
+      defeatMessage:
+        'O curador fecha o arquivo. "Reajuste o plano e tente a prova outra vez."',
+      enemyName: 'Curador de Projetos',
+      crystalName: 'Cristal Ruby Craft',
+      rewardUnlockedMessage:
+        `O cristal de ofício de Felipe não representa uma única funcionalidade. Na Runa, ele constrói e opera sistemas de folha de pagamento e RH dos quais empresas reais dependem.
+
+Seu trabalho vive onde produto, compliance e operação se encontram: serviços Rails, interfaces React, mudanças de banco de dados, relatórios, regras fiscais, integrações, CI/CD, observabilidade e suporte em produção.
+
+O curador chama isso de ofício: entender o problema de negócio, enviar o menor ajuste confiável, observar o sistema em produção e continuar melhorando a ferramenta para quem depende dela.`,
+    },
+    'school-guide-trial': {
+      title: 'Prova do Guia da Escola',
+      introLog: 'O guia da escola testa se você está pronto para ouvir mais.',
+      victoryLog: 'O guia concorda. Você conquistou a próxima página de Felipe Kummer.',
+      defeatMessage:
+        'O guia abaixa o livro. "Quase, mas ainda não. Volte quando estiver pronto para perguntar de novo."',
+      enemyName: 'Guia da Escola',
+      crystalName: 'Cristal de Conhecimento AWS',
+      rewardUnlockedMessage:
+        `A história de Felipe começa muito antes do código. Desde pequeno ele mostrou talento natural para matemática, física e idiomas, além de uma capacidade incomum de aprender rápido quando um desafio prendia sua atenção.
+
+Ainda jovem, decidiu se tornar Oficial da Marinha Mercante. Conquistou sua vaga por meio de uma prova difícil e competitiva, depois se preparou para uma vida em que disciplina, precisão e responsabilidade importam todos os dias.
+
+No mar, tornou-se Oficial de Náutica a bordo de navios metaneiros. Navegação, operações de carga, procedimentos de segurança, resposta a emergências e tripulações multinacionais ensinaram Felipe a manter a calma, comunicar-se com clareza e respeitar sistemas complexos.
+
+Em 2022, escolheu um novo horizonte: tecnologia. Começou pelo CS50 de Harvard, construindo os fundamentos que depois o levaram ao bootcamp de desenvolvimento web full stack da Le Wagon.
+
+Desde então, continuou avançando: React, Go, desenvolvimento mobile, DevOps, Python, infraestrutura cloud e qualquer ferramenta que o próximo problema exigisse. Ele gosta de aprender porque cada nova ferramenta é mais uma forma de resolver um problema real.
+
+Em 2024 voltou à Le Wagon para Data Engineering, ampliando seu conhecimento sobre pipelines de dados, warehouses, analytics e a infraestrutura por trás do trabalho moderno com dados.`,
+    },
+    'workout-buddy-trial': {
+      title: 'Prova do Parceiro de Treino',
+      introLog: 'O parceiro de treino transforma disciplina em um combate amistoso.',
+      victoryLog: 'O parceiro de treino concorda. Outro cristal entra no seu caminho.',
+      defeatMessage:
+        'O parceiro oferece uma mão. "Ajuste sua postura e me desafie outra vez."',
+      enemyName: 'Parceiro de Treino',
+      crystalName: 'Cristal de Vitalidade Esmeralda',
+      rewardUnlockedMessage:
+        `O cristal de vitalidade de Felipe vem de mais do que código. Ele sempre foi ligado aos esportes, especialmente ao basquete.
+
+Durante a escola e a faculdade, jogou basquete competitivo, construiu disciplina com seus times e conquistou muitas medalhas pelo caminho.
+
+O jogo ensinou timing, resiliência, comunicação e como continuar útil sob pressão, hábitos que ainda aparecem em seu trabalho como engenheiro.
+
+Hoje ele ainda curte uma partida ocasional, mas na maioria dos dias a rotina é mais simples: aparecer na academia, treinar com consistência e manter o corpo pronto para o próximo desafio.`,
+    },
+    'mystic-guide-final': {
+      title: 'Prova do Guia Misterioso',
+      introLog: 'O guia misterioso ergue a luz final.',
+      victoryLog: 'O guia se curva. O prêmio final é seu.',
+      defeatMessage:
+        'O guia estabiliza a luz. "Seus cristais são verdadeiros. Volte quando seu foco estiver mais afiado."',
+      enemyName: 'Guia Misterioso',
+      rewardUnlockedMessage:
+        'O guia abre o último caminho: contate Felipe por email, LinkedIn, GitHub, CV ou uma chamada de 15 minutos.',
+    },
+  },
+}
+
+export function getBattleAction(actionId: BattleActionId, language: LanguageCode): BattleAction {
+  const action = BATTLE_ACTIONS[actionId]
+
+  return {
+    ...action,
+    label: battleActionLabelsByLanguage[language][actionId],
+  }
+}
+
+export function getBattleEncounter(
+  encounterId: BattleEncounterId,
+  language: LanguageCode,
+): BattleEncounter {
+  const encounter = BATTLE_ENCOUNTERS[encounterId]
+  const localizedText = battleEncounterTextByLanguage[language][encounterId]
+  const reward =
+    encounter.reward.kind === 'crystal'
+      ? {
+          ...encounter.reward,
+          crystal: {
+            ...encounter.reward.crystal,
+            name: localizedText.crystalName ?? encounter.reward.crystal.name,
+          },
+          unlockedMessage: localizedText.rewardUnlockedMessage,
+        }
+      : {
+          ...encounter.reward,
+          unlockedMessage: localizedText.rewardUnlockedMessage,
+        }
+
+  return {
+    ...encounter,
+    defeatMessage: localizedText.defeatMessage,
+    enemy: {
+      ...encounter.enemy,
+      name: localizedText.enemyName,
+    },
+    introLog: localizedText.introLog,
+    reward,
+    title: localizedText.title,
+    victoryLog: localizedText.victoryLog,
+  }
 }

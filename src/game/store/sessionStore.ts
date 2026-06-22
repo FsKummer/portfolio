@@ -1,4 +1,5 @@
 export type AvatarChoice = 'boy' | 'girl'
+export type LanguageCode = 'en' | 'es' | 'pt-BR'
 
 export type VisitorProgress = {
   crystalIds: string[]
@@ -9,14 +10,17 @@ export type VisitorProgress = {
 
 export type VisitorProfile = {
   avatar: AvatarChoice | null
+  language: LanguageCode
   progress: VisitorProgress
   visitorName: string
 }
 
 const STORAGE_KEY = 'felipe-kummer-portfolio-profile'
+const DEFAULT_LANGUAGE: LanguageCode = 'en'
 
 const DEFAULT_PROFILE: VisitorProfile = {
   avatar: null,
+  language: DEFAULT_LANGUAGE,
   progress: {
     crystalIds: [],
     defeatedBattleIds: [],
@@ -29,6 +33,7 @@ const DEFAULT_PROFILE: VisitorProfile = {
 function createDefaultProfile(): VisitorProfile {
   return {
     avatar: DEFAULT_PROFILE.avatar,
+    language: DEFAULT_PROFILE.language,
     progress: {
       crystalIds: [...DEFAULT_PROFILE.progress.crystalIds],
       defeatedBattleIds: [...DEFAULT_PROFILE.progress.defeatedBattleIds],
@@ -37,6 +42,14 @@ function createDefaultProfile(): VisitorProfile {
     },
     visitorName: DEFAULT_PROFILE.visitorName,
   }
+}
+
+function normalizeLanguage(language: unknown): LanguageCode {
+  if (language === 'en' || language === 'es' || language === 'pt-BR') {
+    return language
+  }
+
+  return DEFAULT_LANGUAGE
 }
 
 function normalizeProgress(progress: Partial<VisitorProgress> | undefined): VisitorProgress {
@@ -84,6 +97,7 @@ export function loadVisitorProfile(): VisitorProfile {
         parsedProfile.avatar === 'boy' || parsedProfile.avatar === 'girl'
           ? parsedProfile.avatar
           : DEFAULT_PROFILE.avatar,
+      language: normalizeLanguage(parsedProfile.language),
       progress: normalizeProgress(parsedProfile.progress),
     }
   } catch {

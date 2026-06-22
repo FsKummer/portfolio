@@ -18,9 +18,16 @@ import {
   CRYSTAL_BATTLE_ENCOUNTER_IDS,
   FINAL_GUIDE_ENCOUNTER_ID,
   type CrystalBattleEncounterId,
+  getBattleEncounter,
 } from '../data/battles'
-import { portfolioDialogues } from '../data/portfolioContent'
-import { hasDefeatedBattle, loadVisitorProfile, markQuestGuideIntroSeen } from '../store/sessionStore'
+import { getWorldDialogueHint, getWorldText } from '../data/localizedText'
+import { getPortfolioDialogues } from '../data/portfolioContent'
+import {
+  hasDefeatedBattle,
+  type LanguageCode,
+  loadVisitorProfile,
+  markQuestGuideIntroSeen,
+} from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -102,6 +109,7 @@ export class WorldScene extends Phaser.Scene {
   }
   private helpPanel?: Phaser.GameObjects.Container
   private interactionPrompt?: Phaser.GameObjects.Text
+  private language: LanguageCode = 'en'
   private dialogueBox?: Phaser.GameObjects.Container
   private dialogueBody?: Phaser.GameObjects.Text
   private dialogueHint?: Phaser.GameObjects.Text
@@ -138,6 +146,7 @@ export class WorldScene extends Phaser.Scene {
   private dialoguePageIndex = 0
   private direction: Direction = 'down'
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
+  private worldText: ReturnType<typeof getWorldText> = getWorldText('en')
   private spawnPoint = WORLD_SPAWN
   private initialDialogue?: WorldSceneDialogue
   private transitioning = false
@@ -184,6 +193,9 @@ export class WorldScene extends Phaser.Scene {
 
   create() {
     const profile = loadVisitorProfile()
+
+    this.language = profile.language
+    this.worldText = getWorldText(this.language)
     this.playerAnimPrefix = profile.avatar === 'girl' ? 'amelia' : 'adam'
     this.questMapGranted = profile.progress.questMapGranted
     this.mobileControlsEnabled = supportsVirtualController()
@@ -333,7 +345,7 @@ export class WorldScene extends Phaser.Scene {
 
     const { aura, guide, shadow } = this.createQuestGuide()
 
-    this.questGuideDialogueLines = portfolioDialogues.questGuide(visitorName)
+    this.questGuideDialogueLines = getPortfolioDialogues(this.language).questGuide(visitorName)
     this.questGuideLineIndex = 0
     this.questGuideIntroActive = true
     this.questGuideDialogueReady = false
@@ -506,9 +518,11 @@ export class WorldScene extends Phaser.Scene {
     const dialoguePanelLeft = -dialoguePanelWidth / 2 + 44
     const dialoguePanelTop = -WORLD_DIALOGUE_PANEL_HEIGHT / 2 + 22
     const controlsCopy = this.mobileControlsEnabled
-      ? 'move: d-pad   sprint: x   interact: a\nclose: b   help: y'
-      : 'move: wasd/arrows   sprint: shift\ninteract: e / enter   map: m\nhelp: h'
-    const dialogueHintText = this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes'
+      ? this.worldText.controlsMobile
+      : this.worldText.controlsKeyboard
+    const dialogueHintText = this.mobileControlsEnabled
+      ? this.worldText.dialogueCloseMobile
+      : this.worldText.dialogueCloseKeyboard
 
     this.helpPanel = this.add
       .container(0, 0)
@@ -519,12 +533,12 @@ export class WorldScene extends Phaser.Scene {
       .rectangle(214, 82, 396, 116, 0x050913, 0.78)
       .setStrokeStyle(1, 0x90a3ff, 0.35)
     const welcomeText = this.add
-      .text(40, 34, 'welcome, ' + visitorName, {
-      fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '26px',
-      fontStyle: '700',
-      color: '#edf2ff',
-    })
+      .text(40, 34, this.worldText.welcome(visitorName), {
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '26px',
+        fontStyle: '700',
+        color: '#edf2ff',
+      })
       .setLetterSpacing(0.8)
     const controlsText = this.add
       .text(40, 72, controlsCopy, {
@@ -621,7 +635,7 @@ export class WorldScene extends Phaser.Scene {
     const panel = this.add
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 1112, 576, 0x050913, 0.94)
       .setStrokeStyle(3, 0xa4b6ff, 0.62)
-    const title = this.add.text(112, 94, 'field map', {
+    const title = this.add.text(112, 94, this.worldText.mapTitle, {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '30px',
       fontStyle: '700',
@@ -629,7 +643,7 @@ export class WorldScene extends Phaser.Scene {
     })
     title.setStroke('#01040b', 3)
     const hint = this.add
-      .text(GAME_WIDTH - 112, 108, 'press m to close', {
+      .text(GAME_WIDTH - 112, 108, this.worldText.mapCloseHint, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '18px',
         fontStyle: '700',
@@ -686,7 +700,7 @@ export class WorldScene extends Phaser.Scene {
         return
       }
 
-      const encounter = BATTLE_ENCOUNTERS[encounterId]
+      const encounter = getBattleEncounter(encounterId, this.language)
       if (encounter.reward.kind !== 'crystal') {
         return
       }
@@ -703,7 +717,7 @@ export class WorldScene extends Phaser.Scene {
         .rectangle(0, 0, 18, 18, crystal.colors.body, 0.98)
         .setRotation(Math.PI / 4)
         .setStrokeStyle(2, crystal.colors.edge, 0.9)
-      const label = this.add.text(22, -24, crystal.name.replace(' Crystal', ''), {
+      const label = this.add.text(22, -24, this.getQuestMapCrystalLabel(crystal.name), {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '15px',
         fontStyle: '700',
@@ -737,14 +751,14 @@ export class WorldScene extends Phaser.Scene {
       .star(0, 0, 8, 7, 18, 0xf6f8ff, 0.96)
       .setStrokeStyle(2, 0x9bb1ff, 0.9)
       .setBlendMode(Phaser.BlendModes.ADD)
-    const label = this.add.text(24, -22, 'Final Guide', {
+    const label = this.add.text(24, -22, this.worldText.finalGuide, {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '15px',
       fontStyle: '700',
       color: '#fff1a8',
     })
     label.setStroke('#01040b', 3)
-    const status = this.add.text(24, -2, 'light calls', {
+    const status = this.add.text(24, -2, this.worldText.lightCalls, {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '12px',
       fontStyle: '700',
@@ -781,7 +795,7 @@ export class WorldScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD)
     const dot = this.add.circle(0, 0, 9, 0xf6f8ff, 1).setStrokeStyle(3, 0x10192d, 0.85)
     const label = this.add
-      .text(0, 24, 'you', {
+        .text(0, 24, this.worldText.you, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '14px',
         fontStyle: '700',
@@ -846,7 +860,7 @@ export class WorldScene extends Phaser.Scene {
       const collected = collectedCrystalIds.has(crystalId)
 
       marker.setAlpha(collected ? 0.58 : 1)
-      statusText.setText(collected ? 'collected' : 'trial waits')
+      statusText.setText(collected ? this.worldText.collected : this.worldText.trialWaits)
       statusText.setColor(collected ? '#d7e0ff' : '#b7c4ff')
     })
     this.finalSparkVisible = this.shouldShowFinalSpark(profile)
@@ -872,6 +886,26 @@ export class WorldScene extends Phaser.Scene {
 
   private getQuestMapLeft() {
     return (GAME_WIDTH - QUEST_MAP_WIDTH) / 2
+  }
+
+  private getQuestMapCrystalLabel(crystalName: string) {
+    if (this.language === 'en') {
+      return crystalName.replace(' Crystal', '')
+    }
+
+    return crystalName.replace('Cristal de ', '').replace('Cristal ', '')
+  }
+
+  private getWorldZoneLabel(zone: InteractionZone) {
+    return this.worldText.houseLabels[zone.id] ?? zone.label
+  }
+
+  private getWorldZoneMessage(zone: InteractionZone): string {
+    if (zone.id === 'contact-dock') {
+      return getPortfolioDialogues(this.language).contactSign
+    }
+
+    return 'message' in zone && typeof zone.message === 'string' ? zone.message : ''
   }
 
   private bindInteractionInput() {
@@ -946,7 +980,10 @@ export class WorldScene extends Phaser.Scene {
       return
     }
 
-    this.openDialogue(this.activeZone.label, this.activeZone.message || portfolioDialogues.contactSign)
+    this.openDialogue(
+      this.getWorldZoneLabel(this.activeZone),
+      this.getWorldZoneMessage(this.activeZone),
+    )
     playSfx(this, SFX_KEYS.uiConfirm)
   }
 
@@ -1075,15 +1112,12 @@ export class WorldScene extends Phaser.Scene {
         ? `${this.dialoguePageIndex + 1}/${this.dialoguePages.length}   `
         : ''
 
-    if (hasNextPage) {
-      return this.mobileControlsEnabled
-        ? `${pageText}A next   B ${hasPreviousPage ? 'previous' : 'closes'}`
-        : `${pageText}enter next   esc ${hasPreviousPage ? 'previous' : 'closes'}`
-    }
-
-    return this.mobileControlsEnabled
-      ? `${pageText}A closes   B ${hasPreviousPage ? 'previous' : 'closes'}`
-      : `${pageText}enter closes   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+    return getWorldDialogueHint(this.language, {
+      hasNextPage,
+      hasPreviousPage,
+      isMobile: this.mobileControlsEnabled,
+      pageText,
+    })
   }
 
   private typeDialogueText(message: string, onComplete?: () => void) {
@@ -1118,7 +1152,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.finalSpark?.setVisible(false)
     this.activeFinalSpark = false
-    this.finalGuideDialogueLines = portfolioDialogues.finalGuideChallenge(
+    this.finalGuideDialogueLines = getPortfolioDialogues(this.language).finalGuideChallenge(
       profile.visitorName || 'traveler',
     )
     this.finalGuideLineIndex = 0
@@ -1182,15 +1216,15 @@ export class WorldScene extends Phaser.Scene {
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     const finalLine = this.finalGuideLineIndex === this.finalGuideDialogueLines.length - 1
-    title.setText('Mysterious Guide')
+    title.setText(this.worldText.guideTitle)
     this.dialogueHint?.setText(
       finalLine
         ? this.mobileControlsEnabled
-          ? 'A accepts'
-          : 'enter / space accepts'
+          ? this.worldText.guideAcceptMobile
+          : this.worldText.guideAcceptKeyboard
         : this.mobileControlsEnabled
-          ? 'A continues'
-          : 'enter / space continues',
+          ? this.worldText.guideContinueMobile
+          : this.worldText.guideContinueKeyboard,
     )
     this.dialogueBox.setVisible(true)
     this.finalGuideDialogueReady = false
@@ -1310,15 +1344,15 @@ export class WorldScene extends Phaser.Scene {
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
     const finalLine = this.questGuideLineIndex === this.questGuideDialogueLines.length - 1
-    title.setText('Mysterious Guide')
+    title.setText(this.worldText.guideTitle)
     this.dialogueHint?.setText(
       finalLine
         ? this.mobileControlsEnabled
-          ? 'A begins'
-          : 'enter / space begins'
+          ? this.worldText.guideBeginMobile
+          : this.worldText.guideBeginKeyboard
         : this.mobileControlsEnabled
-          ? 'A continues'
-          : 'enter / space continues',
+          ? this.worldText.guideContinueMobile
+          : this.worldText.guideContinueKeyboard,
     )
     this.dialogueBox.setVisible(true)
     this.questGuideDialogueReady = false
@@ -1549,7 +1583,11 @@ export class WorldScene extends Phaser.Scene {
         this.suppressedHouseEntryZoneId = undefined
         this.activeFinalSpark = true
         this.interactionPrompt
-          .setText(this.mobileControlsEnabled ? 'press A: Guide Light' : 'press e: Guide Light')
+          .setText(
+            this.mobileControlsEnabled
+              ? this.worldText.promptMobile(this.worldText.guideLight)
+              : this.worldText.promptKeyboard(this.worldText.guideLight),
+          )
           .setVisible(true)
         return
       }
@@ -1585,7 +1623,11 @@ export class WorldScene extends Phaser.Scene {
 
     this.suppressedHouseEntryZoneId = undefined
     this.interactionPrompt
-      .setText((this.mobileControlsEnabled ? 'press A: ' : 'press e: ') + this.activeZone.label)
+      .setText(
+        this.mobileControlsEnabled
+          ? this.worldText.promptMobile(this.getWorldZoneLabel(this.activeZone))
+          : this.worldText.promptKeyboard(this.getWorldZoneLabel(this.activeZone)),
+      )
       .setVisible(true)
   }
 

@@ -1,8 +1,9 @@
 import Phaser from 'phaser'
-import { introDialogue } from '../data/dialogue'
+import { getIntroDialogue } from '../data/dialogue'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { typewriteText, waitForConfirm } from '../systems/dialogue'
 import {
+  type LanguageCode,
   type VisitorProfile,
   loadVisitorProfile,
   resetVisitorProfile,
@@ -11,6 +12,17 @@ import {
 import { SFX_KEYS, playSfx } from '../systems/audio'
 
 type StartMenuOption = 'continue' | 'new-game'
+type LanguageOption = {
+  code: LanguageCode
+  description: string
+  label: string
+}
+
+type LanguageButton = {
+  container: Phaser.GameObjects.Container
+  label: Phaser.GameObjects.Text
+  option: LanguageOption
+}
 
 type StartMenuButton = {
   container: Phaser.GameObjects.Container
@@ -32,6 +44,30 @@ export class IntroScene extends Phaser.Scene {
   private selectedStartMenuIndex = 0
 
   private startMenuActive = false
+  private languageMenu?: Phaser.GameObjects.Container
+  private languageButtons: LanguageButton[] = []
+  private selectedLanguageIndex = 0
+  private languageMenuActive = false
+
+  private language: LanguageCode = 'en'
+
+  private readonly languageOptions: LanguageOption[] = [
+    {
+      code: 'en',
+      label: 'English',
+      description: 'Start the journey in English',
+    },
+    {
+      code: 'es',
+      label: 'Español',
+      description: 'Comienza la aventura en español',
+    },
+    {
+      code: 'pt-BR',
+      label: 'Português BR',
+      description: 'Comece a aventura em português',
+    },
+  ]
 
   constructor() {
     super('intro')
@@ -42,6 +78,11 @@ export class IntroScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#02040d')
     this.createStarfield()
+    this.createLanguageMenu(profile)
+  }
+
+  private proceedAfterLanguageSelection() {
+    const profile = loadVisitorProfile()
 
     if (this.canContinueProfile(profile)) {
       this.createStartMenu(profile)
@@ -56,15 +97,17 @@ export class IntroScene extends Phaser.Scene {
       return
     }
 
-    for (const line of introDialogue) {
+    const profile = loadVisitorProfile()
+
+    for (const line of getIntroDialogue(profile.language)) {
       this.promptText.setText('')
       await typewriteText(this, this.dialogueText, line)
-      this.promptText.setText('press enter to continue')
+      this.promptText.setText(this.getIntroContinuePrompt())
       await waitForConfirm(this)
     }
 
-    const profile = loadVisitorProfile()
-    const visitorName = await this.captureName(profile.visitorName)
+    const updatedProfile = loadVisitorProfile()
+    const visitorName = await this.captureName(updatedProfile.visitorName)
 
     updateVisitorProfile({ visitorName })
     this.scene.start('character-select')
@@ -79,9 +122,204 @@ export class IntroScene extends Phaser.Scene {
     return Boolean(profile.visitorName.trim() && profile.avatar)
   }
 
+  private createLanguageMenu(profile: VisitorProfile) {
+    this.language = profile.language
+    this.selectedLanguageIndex = Math.max(
+      0,
+      this.languageOptions.findIndex((option) => option.code === profile.language),
+    )
+    this.languageMenuActive = true
+
+    const title = this.add
+      .text(GAME_WIDTH / 2, 104, 'Felipe Kummer', {
+        fontFamily: 'monospace',
+        fontSize: '46px',
+        color: '#f4f7ff',
+      })
+      .setOrigin(0.5)
+    title.setStroke('#02040d', 4)
+
+    const subtitle = this.add
+      .text(GAME_WIDTH / 2, 154, 'choose your language', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#9bb1ff',
+      })
+      .setOrigin(0.5)
+    subtitle.setStroke('#02040d', 3)
+
+    const panel = this.add
+      .rectangle(0, 0, 680, 328, 0x050913, 0.9)
+      .setStrokeStyle(2, 0x90a3ff, 0.5)
+
+    this.languageButtons = this.languageOptions.map((option, index) =>
+      this.createLanguageButton(0, -88 + index * 84, option),
+    )
+
+    const hint = this.add
+      .text(0, 128, 'arrows / wasd select   enter confirms', {
+        fontFamily: 'monospace',
+        fontSize: '17px',
+        color: '#b7c4ff',
+      })
+      .setOrigin(0.5)
+    hint.setStroke('#01040b', 2)
+
+    const languagePanel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 44, [
+      panel,
+      ...this.languageButtons.map((button) => button.container),
+      hint,
+    ])
+    this.languageMenu = this.add.container(0, 0, [title, subtitle, languagePanel])
+
+    this.addLanguageMenuInput()
+    this.applyLanguageSelection()
+  }
+
+  private createLanguageButton(
+    x: number,
+    y: number,
+    option: LanguageOption,
+  ): LanguageButton {
+    const frame = this.add.rectangle(0, 0, 520, 64, 0x0f1730, 0.94)
+    const label = this.add
+      .text(-220, -10, option.label, {
+        fontFamily: 'monospace',
+        fontSize: '25px',
+        color: '#edf2ff',
+      })
+      .setOrigin(0, 0.5)
+    const description = this.add
+      .text(-220, 17, option.description, {
+        fontFamily: 'monospace',
+        fontSize: '15px',
+        color: '#9bb1ff',
+      })
+      .setOrigin(0, 0.5)
+    const container = this.add.container(x, y, [frame, label, description])
+
+    container.setSize(520, 64)
+    container.setInteractive(
+      new Phaser.Geom.Rectangle(-260, -32, 520, 64),
+      Phaser.Geom.Rectangle.Contains,
+    )
+    container.on('pointerover', () => {
+      if (!this.languageMenuActive) {
+        return
+      }
+
+      const nextIndex = this.languageOptions.findIndex(({ code }) => code === option.code)
+
+      if (nextIndex === this.selectedLanguageIndex) {
+        return
+      }
+
+      this.selectedLanguageIndex = nextIndex
+      playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
+      this.applyLanguageSelection()
+    })
+    container.on('pointerdown', () => this.chooseLanguage(option.code))
+
+    return {
+      container,
+      label,
+      option,
+    }
+  }
+
+  private addLanguageMenuInput() {
+    this.input.keyboard?.on('keydown', this.handleLanguageMenuKeyDown, this)
+  }
+
+  private removeLanguageMenuInput() {
+    this.input.keyboard?.off('keydown', this.handleLanguageMenuKeyDown, this)
+  }
+
+  private handleLanguageMenuKeyDown(event: KeyboardEvent) {
+    if (!this.languageMenuActive) {
+      return
+    }
+
+    const key = event.key.toLowerCase()
+
+    if (key === 'arrowup' || key === 'w') {
+      event.preventDefault()
+      this.changeLanguageSelection(-1)
+      return
+    }
+
+    if (key === 'arrowdown' || key === 's') {
+      event.preventDefault()
+      this.changeLanguageSelection(1)
+      return
+    }
+
+    if (key === 'enter' || key === ' ') {
+      event.preventDefault()
+      this.confirmLanguageSelection()
+    }
+  }
+
+  private changeLanguageSelection(direction: -1 | 1) {
+    if (!this.languageMenuActive) {
+      return
+    }
+
+    this.selectedLanguageIndex = Phaser.Math.Wrap(
+      this.selectedLanguageIndex + direction,
+      0,
+      this.languageButtons.length,
+    )
+    playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
+    this.applyLanguageSelection()
+  }
+
+  private confirmLanguageSelection() {
+    if (!this.languageMenuActive) {
+      return
+    }
+
+    const language = this.languageButtons[this.selectedLanguageIndex]?.option.code
+
+    if (!language) {
+      return
+    }
+
+    this.chooseLanguage(language)
+  }
+
+  private chooseLanguage(language: LanguageCode) {
+    if (!this.languageMenuActive) {
+      return
+    }
+
+    this.language = language
+    this.languageMenuActive = false
+    this.removeLanguageMenuInput()
+    updateVisitorProfile({ language })
+    playSfx(this, SFX_KEYS.uiConfirm)
+    this.languageMenu?.destroy()
+    this.languageMenu = undefined
+    this.languageButtons = []
+    this.proceedAfterLanguageSelection()
+  }
+
+  private applyLanguageSelection() {
+    this.languageButtons.forEach((button, index) => {
+      const selected = index === this.selectedLanguageIndex
+      const frame = button.container.list[0] as Phaser.GameObjects.Rectangle
+
+      frame.setStrokeStyle(selected ? 3 : 1, selected ? 0xf6f8ff : 0x90a3ff, selected ? 0.9 : 0.45)
+      frame.setFillStyle(selected ? 0x172141 : 0x0f1730, 0.94)
+      button.label.setColor(selected ? '#f6f8ff' : '#9bb1ff')
+      button.container.setScale(selected ? 1.04 : 1)
+    })
+  }
+
   private createStartMenu(profile: VisitorProfile) {
     this.startMenuActive = true
     this.selectedStartMenuIndex = 0
+    this.language = profile.language
 
     const title = this.add
       .text(GAME_WIDTH / 2, 124, 'Felipe Kummer', {
@@ -93,7 +331,7 @@ export class IntroScene extends Phaser.Scene {
     title.setStroke('#02040d', 4)
 
     const subtitle = this.add
-      .text(GAME_WIDTH / 2, 176, 'adventure portfolio', {
+      .text(GAME_WIDTH / 2, 176, this.getStartMenuSubtitle(), {
         fontFamily: 'monospace',
         fontSize: '22px',
         color: '#9bb1ff',
@@ -105,7 +343,7 @@ export class IntroScene extends Phaser.Scene {
       .rectangle(0, 0, 560, 244, 0x050913, 0.9)
       .setStrokeStyle(2, 0x90a3ff, 0.5)
     const welcome = this.add
-      .text(0, -82, 'welcome back, ' + profile.visitorName, {
+      .text(0, -82, this.getWelcomeBackText(profile.visitorName), {
         fontFamily: 'monospace',
         fontSize: '24px',
         color: '#edf2ff',
@@ -113,8 +351,8 @@ export class IntroScene extends Phaser.Scene {
       .setOrigin(0.5)
 
     this.startMenuButtons = [
-      this.createStartMenuButton(0, -18, 'continue', 'Continue'),
-      this.createStartMenuButton(0, 54, 'new-game', 'New Game'),
+      this.createStartMenuButton(0, -18, 'continue', this.getContinueLabel()),
+      this.createStartMenuButton(0, 54, 'new-game', this.getNewGameLabel()),
     ]
 
     const menuPanel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 50, [
@@ -250,7 +488,9 @@ export class IntroScene extends Phaser.Scene {
       return
     }
 
+    const language = this.language
     resetVisitorProfile()
+    updateVisitorProfile({ language })
     this.startMenu?.destroy()
     this.startMenu = undefined
     this.startMenuButtons = []
@@ -267,6 +507,102 @@ export class IntroScene extends Phaser.Scene {
       button.label.setColor(selected ? '#f6f8ff' : '#9bb1ff')
       button.container.setScale(selected ? 1.04 : 1)
     })
+  }
+
+  private getStartMenuSubtitle() {
+    if (this.language === 'es') {
+      return 'portfolio de aventura'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'portfolio de aventura'
+    }
+
+    return 'adventure portfolio'
+  }
+
+  private getWelcomeBackText(visitorName: string) {
+    if (this.language === 'es') {
+      return 'bienvenido de vuelta, ' + visitorName
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'bem-vindo de volta, ' + visitorName
+    }
+
+    return 'welcome back, ' + visitorName
+  }
+
+  private getContinueLabel() {
+    if (this.language === 'es') {
+      return 'Continuar'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'Continuar'
+    }
+
+    return 'Continue'
+  }
+
+  private getNewGameLabel() {
+    if (this.language === 'es') {
+      return 'Nueva partida'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'Novo jogo'
+    }
+
+    return 'New Game'
+  }
+
+  private getIntroContinuePrompt() {
+    if (this.language === 'es') {
+      return 'presiona enter para continuar'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'aperte enter para continuar'
+    }
+
+    return 'press enter to continue'
+  }
+
+  private getNamePromptText() {
+    if (this.language === 'es') {
+      return 'escribe tu nombre y presiona enter'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'digite seu nome e aperte enter'
+    }
+
+    return 'type your name and press enter'
+  }
+
+  private getNameHelpText() {
+    if (this.language === 'es') {
+      return 'letras, espacios, apostrofes, guiones'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'letras, espaços, apóstrofos, hifens'
+    }
+
+    return 'letters, spaces, apostrophes, hyphens'
+  }
+
+  private getNamePlaceholderText() {
+    if (this.language === 'es') {
+      return 'Nombre del viajero'
+    }
+
+    if (this.language === 'pt-BR') {
+      return 'Nome do viajante'
+    }
+
+    return 'Traveler name'
   }
 
   private createDialogueFrame() {
@@ -293,7 +629,7 @@ export class IntroScene extends Phaser.Scene {
 
   private captureName(defaultName: string) {
     return new Promise<string>((resolve) => {
-      this.promptText?.setText('type your name and press enter')
+      this.promptText?.setText(this.getNamePromptText())
 
       this.nameForm = this.add.dom(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 24).createFromHTML(`
         <div style="display:flex;flex-direction:column;gap:12px;align-items:center;min-width:420px;">
@@ -301,9 +637,9 @@ export class IntroScene extends Phaser.Scene {
             id="traveler-name"
             maxlength="14"
             style="width:100%;padding:16px 18px;border:1px solid rgba(144,163,255,0.5);background:rgba(7,11,24,0.92);color:#edf2ff;font-family:monospace;font-size:22px;outline:none;text-align:center;"
-            placeholder="Traveler name"
+            placeholder="${this.getNamePlaceholderText()}"
           />
-          <div style="font-family:monospace;font-size:16px;color:#b6c3ff;">letters, spaces, apostrophes, hyphens</div>
+          <div style="font-family:monospace;font-size:16px;color:#b6c3ff;">${this.getNameHelpText()}</div>
         </div>
       `)
 

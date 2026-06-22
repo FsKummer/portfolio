@@ -2,7 +2,9 @@ import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import { SCHEDULE_CALL_URL } from '../data/battles'
+import { getFinalPrizeText } from '../data/localizedText'
 import { portfolioContact } from '../data/portfolioContent'
+import { type LanguageCode, loadVisitorProfile } from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -19,6 +21,8 @@ const PANEL_COLOR = 0x04070f
 const PANEL_STROKE = 0xa4b6ff
 
 export class FinalPrizeScene extends Phaser.Scene {
+  private finalPrizeText!: ReturnType<typeof getFinalPrizeText>
+  private language: LanguageCode = 'en'
   private returnData!: WorldBattleReturnData
   private returning = false
 
@@ -27,6 +31,10 @@ export class FinalPrizeScene extends Phaser.Scene {
   }
 
   init(data: FinalPrizeSceneData) {
+    const profile = loadVisitorProfile()
+
+    this.language = profile.language
+    this.finalPrizeText = getFinalPrizeText(this.language)
     this.returnData = data.returnData
     this.returning = false
   }
@@ -113,7 +121,7 @@ export class FinalPrizeScene extends Phaser.Scene {
       .setStrokeStyle(3, PANEL_STROKE, 0.6)
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 310, 'Mysterious Guide', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 310, this.finalPrizeText.title, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '24px',
         fontStyle: '700',
@@ -125,7 +133,7 @@ export class FinalPrizeScene extends Phaser.Scene {
     this.add.text(
       164,
       GAME_HEIGHT - 270,
-      'You gathered every crystal and passed the final trial. The final prize is a direct path to Felipe Kummer.',
+      this.finalPrizeText.body,
       {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '22px',
@@ -149,10 +157,10 @@ export class FinalPrizeScene extends Phaser.Scene {
       portfolioContact.github,
       portfolioContact.githubUrl,
     )
-    this.createContactLink(GAME_HEIGHT - 104, 'CV', 'Download PDF', portfolioContact.cvPath)
+    this.createContactLink(GAME_HEIGHT - 104, 'CV', this.finalPrizeText.downloadPdf, portfolioContact.cvPath)
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 70, 'Schedule a 15 minute call', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 70, this.finalPrizeText.scheduleCall, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '24px',
         fontStyle: '700',
@@ -176,7 +184,7 @@ export class FinalPrizeScene extends Phaser.Scene {
       .on('pointerdown', () => this.openScheduleLink())
 
     this.add
-      .text(GAME_WIDTH - 92, GAME_HEIGHT - 26, 'enter opens calendar   esc returns', {
+      .text(GAME_WIDTH - 92, GAME_HEIGHT - 26, this.finalPrizeText.hint, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '14px',
         fontStyle: '700',

@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
-import { BATTLE_ENCOUNTERS, type BattleEncounter } from '../data/battles'
+import { type BattleEncounter, getBattleEncounter } from '../data/battles'
+import { getInteriorDialogueHint, getInteriorText } from '../data/localizedText'
+import { getPortfolioDialogues } from '../data/portfolioContent'
 import type { HouseZone } from '../data/worldMap'
 import { INTERIORS, type InteriorDefinition, type InteriorObject } from '../data/interiors'
-import { hasDefeatedBattle } from '../store/sessionStore'
+import { hasDefeatedBattle, type LanguageCode, loadVisitorProfile } from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -83,6 +85,8 @@ export class InteriorScene extends Phaser.Scene {
   private interactives: Array<InteriorObject & { area: Phaser.Geom.Rectangle }> = []
   private activeInteractive?: (InteriorObject & { area: Phaser.Geom.Rectangle })
   private helpPanel?: Phaser.GameObjects.Container
+  private interiorText: ReturnType<typeof getInteriorText> = getInteriorText('en')
+  private language: LanguageCode = 'en'
   private prompt?: Phaser.GameObjects.Text
   private dialogueBox?: Phaser.GameObjects.Container
   private dialogueBody?: Phaser.GameObjects.Text
@@ -117,6 +121,10 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   init(data: InteriorSceneData) {
+    const profile = loadVisitorProfile()
+
+    this.language = profile.language
+    this.interiorText = getInteriorText(this.language)
     this.interior = INTERIORS[data.interiorId]
     this.returnTo = data.returnTo
     this.returnZoneId = data.returnZoneId
@@ -413,9 +421,11 @@ export class InteriorScene extends Phaser.Scene {
   private createUi() {
     const dialoguePanelWidth = Math.min(DIALOGUE_PANEL_WIDTH, GAME_WIDTH - 160)
     const controlsCopy = this.mobileControlsEnabled
-      ? 'move: d-pad   sprint: x   interact: a\nclose: b   help: y'
-      : 'move: wasd/arrows   sprint: shift\ninteract: e / enter   help: h'
-    const dialogueHintText = this.mobileControlsEnabled ? 'A or B closes' : 'enter / space closes'
+      ? this.interiorText.controlsMobile
+      : this.interiorText.controlsKeyboard
+    const dialogueHintText = this.mobileControlsEnabled
+      ? this.interiorText.defaultCloseMobile
+      : this.interiorText.defaultCloseKeyboard
 
     this.helpPanel = this.add
       .container(0, 0)
@@ -426,12 +436,12 @@ export class InteriorScene extends Phaser.Scene {
       .rectangle(214, 82, 396, 116, 0x050913, 0.78)
       .setStrokeStyle(1, 0x90a3ff, 0.35)
     const titleText = this.add
-      .text(40, 34, this.interior.title.toLowerCase(), {
-      fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '26px',
-      fontStyle: '700',
-      color: '#edf2ff',
-    })
+      .text(40, 34, this.getInteriorTitle().toLowerCase(), {
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '26px',
+        fontStyle: '700',
+        color: '#edf2ff',
+      })
       .setLetterSpacing(0.8)
     const controlsText = this.add
       .text(40, 72, controlsCopy, {
@@ -467,12 +477,12 @@ export class InteriorScene extends Phaser.Scene {
       .rectangle(0, 0, dialoguePanelWidth, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.78)
       .setStrokeStyle(3, 0xa4b6ff, 0.55)
     const dialogueTitle = this.add
-      .text(panelLeft, panelTop, this.interior.title, {
-      fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '22px',
-      fontStyle: '700',
-      color: '#d7e0ff',
-    })
+      .text(panelLeft, panelTop, this.getInteriorTitle(), {
+        fontFamily: GAME_UI_FONT_FAMILY,
+        fontSize: '22px',
+        fontStyle: '700',
+        color: '#d7e0ff',
+      })
       .setLetterSpacing(0.7)
       .setPadding(6, 4, 6, 4)
     dialogueTitle.setStroke('#04070f', 2)
@@ -504,7 +514,7 @@ export class InteriorScene extends Phaser.Scene {
       .setPadding(4, 4, 4, 4)
     this.dialogueHint.setStroke('#04070f', 2)
 
-    this.rematchChoiceTexts = ['Yes', 'No'].map((label, index) => {
+    this.rematchChoiceTexts = [this.interiorText.yes, this.interiorText.no].map((label, index) => {
       const choice = this.add
         .text(panelLeft + index * 148, DIALOGUE_PANEL_HEIGHT / 2 - 74, label, {
           fontFamily: GAME_UI_FONT_FAMILY,
@@ -621,7 +631,7 @@ export class InteriorScene extends Phaser.Scene {
 
     playSfx(this, SFX_KEYS.uiConfirm)
     this.openDialogue(
-      activeInteractive.label || this.interior.title,
+      this.getInteractiveLabel(activeInteractive),
       this.getInteractiveMessage(activeInteractive),
     )
   }
@@ -718,16 +728,16 @@ export class InteriorScene extends Phaser.Scene {
       return
     }
 
-    const encounter = BATTLE_ENCOUNTERS[interactive.battle.encounterId]
+    const encounter = getBattleEncounter(interactive.battle.encounterId, this.language)
     const defeated = hasDefeatedBattle(interactive.battle.encounterId)
 
     this.battleChallengeOpen = true
     this.battlePromptMode = defeated ? 'rematch' : 'challenge'
     this.openDialogue(
-      interactive.label || this.interior.title,
+      this.getInteractiveLabel(interactive),
       defeated
-        ? `${encounter.reward.unlockedMessage}\n\nWould you like to battle again for fun?`
-        : interactive.battle.challengeMessage,
+        ? `${encounter.reward.unlockedMessage}\n\n${this.interiorText.rematchQuestion}`
+        : this.getBattleChallengeMessage(interactive.battle.encounterId),
       undefined,
       { showRematchChoices: defeated },
     )
@@ -746,7 +756,7 @@ export class InteriorScene extends Phaser.Scene {
     this.closeDialogue()
     this.prompt?.setVisible(false)
 
-    const encounter = BATTLE_ENCOUNTERS[battle.encounterId]
+    const encounter = getBattleEncounter(battle.encounterId, this.language)
     const battleSpot = this.getBattleSpotWorld(encounter)
 
     this.movePlayerToBattleSpot(battleSpot, () => {
@@ -887,27 +897,14 @@ export class InteriorScene extends Phaser.Scene {
         ? `${this.dialoguePageIndex + 1}/${this.dialoguePages.length}   `
         : ''
 
-    if (this.shouldShowRematchChoices()) {
-      return this.mobileControlsEnabled
-        ? `${pageText}d-pad selects   A confirms   B previous`
-        : `${pageText}arrows / wasd select   enter confirms   esc previous`
-    }
-
-    if (hasNextPage) {
-      return this.mobileControlsEnabled
-        ? `${pageText}A next   B ${hasPreviousPage ? 'previous' : 'closes'}`
-        : `${pageText}enter next   esc ${hasPreviousPage ? 'previous' : 'closes'}`
-    }
-
-    if (this.battlePromptMode === 'challenge') {
-      return this.mobileControlsEnabled
-        ? `${pageText}A challenges   B ${hasPreviousPage ? 'previous' : 'closes'}`
-        : `${pageText}enter challenges   esc ${hasPreviousPage ? 'previous' : 'closes'}`
-    }
-
-    return this.mobileControlsEnabled
-      ? `${pageText}A closes   B ${hasPreviousPage ? 'previous' : 'closes'}`
-      : `${pageText}enter closes   esc ${hasPreviousPage ? 'previous' : 'closes'}`
+    return getInteriorDialogueHint(this.language, {
+      hasNextPage,
+      hasPreviousPage,
+      isChallenge: this.battlePromptMode === 'challenge',
+      isMobile: this.mobileControlsEnabled,
+      isRematchChoice: this.shouldShowRematchChoices(),
+      pageText,
+    })
   }
 
   private typeDialogueText(message: string, onComplete?: () => void) {
@@ -948,7 +945,9 @@ export class InteriorScene extends Phaser.Scene {
     this.rematchChoiceTexts.forEach((text, index) => {
       const choice = choices[index]
       const selected = choice === this.selectedRematchChoice
-      text.setText(`${selected ? '> ' : '  '}${choice === 'yes' ? 'Yes' : 'No'}`)
+      text.setText(
+        `${selected ? '> ' : '  '}${choice === 'yes' ? this.interiorText.yes : this.interiorText.no}`,
+      )
       text.setColor(selected ? '#fff1a8' : '#d7e0ff')
     })
   }
@@ -1024,7 +1023,68 @@ export class InteriorScene extends Phaser.Scene {
 
   private getInteractiveMessage(interactive: InteriorObject) {
     if (interactive.battle && hasDefeatedBattle(interactive.battle.encounterId)) {
-      return BATTLE_ENCOUNTERS[interactive.battle.encounterId].reward.unlockedMessage
+      return getBattleEncounter(interactive.battle.encounterId, this.language).reward
+        .unlockedMessage
+    }
+
+    return this.getLocalizedInteractiveMessage(interactive)
+  }
+
+  private getInteriorTitle() {
+    return this.interiorText.titles[this.interior.id] ?? this.interior.title
+  }
+
+  private getInteractiveLabel(interactive: InteriorObject) {
+    if (!interactive.label) {
+      return this.getInteriorTitle()
+    }
+
+    return this.interiorText.labels[interactive.label] ?? interactive.label
+  }
+
+  private getBattleChallengeMessage(encounterId: string) {
+    const dialogues = getPortfolioDialogues(this.language)
+
+    if (encounterId === 'project-curator-trial') {
+      return dialogues.projectsNpcChallenge
+    }
+
+    if (encounterId === 'school-guide-trial') {
+      return dialogues.aboutNpcChallenge
+    }
+
+    if (encounterId === 'workout-buddy-trial') {
+      return dialogues.skillsNpcChallenge
+    }
+
+    return ''
+  }
+
+  private getLocalizedInteractiveMessage(interactive: InteriorObject) {
+    const dialogues = getPortfolioDialogues(this.language)
+
+    if (interactive.battle?.encounterId === 'project-curator-trial') {
+      return dialogues.projectsNpc
+    }
+
+    if (interactive.battle?.encounterId === 'school-guide-trial') {
+      return dialogues.aboutNpc
+    }
+
+    if (interactive.battle?.encounterId === 'workout-buddy-trial') {
+      return dialogues.skillsNpc
+    }
+
+    if (interactive.label === 'Projects Board') {
+      return dialogues.projectsSign
+    }
+
+    if (interactive.label === 'Biography Note') {
+      return dialogues.aboutSign
+    }
+
+    if (interactive.label === 'Hobbies Note') {
+      return dialogues.skillsSign
     }
 
     return interactive.message || ''
@@ -1059,8 +1119,9 @@ export class InteriorScene extends Phaser.Scene {
 
     this.prompt
       .setText(
-        (this.mobileControlsEnabled ? 'press A: ' : 'press e: ') +
-          (this.activeInteractive.label || 'inspect'),
+        this.mobileControlsEnabled
+          ? this.interiorText.promptMobile(this.getInteractiveLabel(this.activeInteractive))
+          : this.interiorText.promptKeyboard(this.getInteractiveLabel(this.activeInteractive)),
       )
       .setVisible(true)
   }

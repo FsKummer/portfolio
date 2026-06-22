@@ -7,8 +7,15 @@ import {
   type BattleEncounter,
   type CrystalBattleEncounterId,
   type CrystalBattleReward,
+  getBattleEncounter,
 } from '../data/battles'
-import { collectCrystal, hasCrystal, loadVisitorProfile } from '../store/sessionStore'
+import { getCrystalRewardText } from '../data/localizedText'
+import {
+  collectCrystal,
+  hasCrystal,
+  type LanguageCode,
+  loadVisitorProfile,
+} from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -27,6 +34,8 @@ const PANEL_STROKE = 0xa4b6ff
 
 export class CrystalRewardScene extends Phaser.Scene {
   private encounter!: BattleEncounter
+  private language: LanguageCode = 'en'
+  private rewardText!: ReturnType<typeof getCrystalRewardText>
   private returnData!: InteriorSceneData
   private returning = false
 
@@ -35,7 +44,11 @@ export class CrystalRewardScene extends Phaser.Scene {
   }
 
   init(data: CrystalRewardSceneData) {
-    this.encounter = BATTLE_ENCOUNTERS[data.encounterId]
+    const profile = loadVisitorProfile()
+
+    this.language = profile.language
+    this.rewardText = getCrystalRewardText(this.language)
+    this.encounter = getBattleEncounter(data.encounterId, this.language)
     this.returnData = data.returnData
     this.returning = false
   }
@@ -134,8 +147,8 @@ export class CrystalRewardScene extends Phaser.Scene {
         GAME_WIDTH / 2,
         388,
         alreadyHadCrystal
-          ? `The ${crystalName} shines again`
-          : `You received the ${crystalName}`,
+          ? this.rewardText.shinesAgain(crystalName)
+          : this.rewardText.received(crystalName),
         {
           fontFamily: GAME_UI_FONT_FAMILY,
           fontSize: '30px',
@@ -188,12 +201,12 @@ export class CrystalRewardScene extends Phaser.Scene {
     })
 
     const crystalLine = alreadyHadCrystal
-      ? `The ${crystalName} answers your call again.`
-      : `Take this ${crystalName}.`
+      ? this.rewardText.answersAgain(crystalName)
+      : this.rewardText.takeCrystal(crystalName)
     const progressLine =
       collectedCrystalCount >= totalCrystalCount
-        ? `All ${totalCrystalCount} crystals are ready to unlock a surprise.`
-        : `Collect all ${totalCrystalCount} crystals to unlock a surprise.`
+        ? this.rewardText.allReady(totalCrystalCount)
+        : this.rewardText.collectAll(totalCrystalCount)
 
     this.add.text(
       172,
@@ -210,7 +223,7 @@ export class CrystalRewardScene extends Phaser.Scene {
     )
 
     this.add
-      .text(GAME_WIDTH - 172, GAME_HEIGHT - 66, 'enter / space continues', {
+      .text(GAME_WIDTH - 172, GAME_HEIGHT - 66, this.rewardText.continueHint, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '16px',
         fontStyle: '700',

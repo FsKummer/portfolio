@@ -2,15 +2,20 @@ import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
 import { GAME_UI_FONT_FAMILY } from '../core/ui'
 import {
-  BATTLE_ACTIONS,
-  BATTLE_ENCOUNTERS,
   type BattleActionId,
   type BattleEncounter,
   type BattleEncounterId,
   type CrystalBattleEncounterId,
+  getBattleAction,
+  getBattleEncounter,
 } from '../data/battles'
 import { INTERIORS } from '../data/interiors'
-import { markBattleDefeated } from '../store/sessionStore'
+import { getBattleSceneText } from '../data/localizedText'
+import {
+  type LanguageCode,
+  loadVisitorProfile,
+  markBattleDefeated,
+} from '../store/sessionStore'
 import {
   clearVirtualControlInputs,
   consumeQueuedVirtualControlAction,
@@ -78,10 +83,12 @@ export class BattleScene extends Phaser.Scene {
   private enemyMpText?: Phaser.GameObjects.Text
   private enemySprite?: Phaser.GameObjects.Sprite
   private itemUsed = false
+  private language: LanguageCode = 'en'
   private lastVirtualDownPressed = false
   private lastVirtualUpPressed = false
   private logText?: Phaser.GameObjects.Text
   private player!: FighterState
+  private battleText!: ReturnType<typeof getBattleSceneText>
   private playerAnimPrefix: 'adam' | 'amelia' = 'adam'
   private playerHpFill?: Phaser.GameObjects.Rectangle
   private playerHpText?: Phaser.GameObjects.Text
@@ -98,10 +105,14 @@ export class BattleScene extends Phaser.Scene {
   }
 
   init(data: BattleSceneData) {
-    this.encounter = BATTLE_ENCOUNTERS[data.encounterId]
+    const profile = loadVisitorProfile()
+
+    this.language = profile.language
+    this.battleText = getBattleSceneText(this.language)
+    this.encounter = getBattleEncounter(data.encounterId, this.language)
     this.returnData = data.returnData
     this.playerAnimPrefix = data.playerAnimPrefix
-    this.player = { ...PLAYER_STATS }
+    this.player = { ...PLAYER_STATS, name: this.battleText.playerName }
     this.enemy = {
       attackDamage: this.encounter.enemy.attackDamage,
       hp: this.encounter.enemy.maxHp,
@@ -236,7 +247,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private createStatusPanels() {
-    this.createStatusPanel(72, 408, 'Traveler', true)
+    this.createStatusPanel(72, 408, this.player.name, true)
     this.createStatusPanel(72, 108, this.enemy.name, false)
   }
 
@@ -294,7 +305,7 @@ export class BattleScene extends Phaser.Scene {
       .setStrokeStyle(3, BATTLE_PANEL_STROKE, 0.6)
 
     this.commandTexts = this.encounter.actions.map((actionId, index) => {
-      const action = BATTLE_ACTIONS[actionId]
+      const action = getBattleAction(actionId, this.language)
       const commandText = this.add
         .text(112, GAME_HEIGHT - 150 + index * 38, '', {
           fontFamily: GAME_UI_FONT_FAMILY,
@@ -373,7 +384,7 @@ export class BattleScene extends Phaser.Scene {
 
     if (consumeQueuedVirtualControlAction('b')) {
       playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
-      this.pushLog('The guide keeps the trial focused.')
+      this.pushLog(this.battleText.focusedTrialLog)
     }
   }
 
@@ -402,7 +413,7 @@ export class BattleScene extends Phaser.Scene {
       return
     }
 
-    const action = BATTLE_ACTIONS[actionId]
+    const action = getBattleAction(actionId, this.language)
     const effect = action.effect
 
     if (effect.kind === 'damage') {
@@ -410,7 +421,7 @@ export class BattleScene extends Phaser.Scene {
 
       if (this.player.mp < mpCost) {
         playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
-        this.pushLog('Not enough MP.')
+        this.pushLog(this.battleText.notEnoughMp)
         return
       }
 
@@ -423,7 +434,7 @@ export class BattleScene extends Phaser.Scene {
 
     if (this.itemUsed) {
       playSfx(this, SFX_KEYS.errorLocked, { volume: 0.32 })
-      this.pushLog('No field potion remains.')
+      this.pushLog(this.battleText.noPotionRemains)
       return
     }
 
@@ -434,8 +445,8 @@ export class BattleScene extends Phaser.Scene {
     playSfx(this, SFX_KEYS.itemUse, { volume: 0.42 })
     this.pushLog(
       healed > 0
-        ? `You use a field potion and recover ${healed} HP.`
-        : 'You use a field potion, but you were already steady.',
+        ? this.battleText.potionHeal(healed)
+        : this.battleText.potionSteady,
     )
     this.refreshUi()
     this.resolveAfterPlayerAction()
@@ -453,8 +464,8 @@ export class BattleScene extends Phaser.Scene {
     this.showDamageNumber(this.enemySprite, damage.toString(), '#fff1a8')
     this.pushLog(
       actionId === 'magic'
-        ? `You cast Focus Spark for ${damage} damage.`
-        : `You attack for ${damage} damage.`,
+        ? this.battleText.magicDamage(damage)
+        : this.battleText.attackDamage(damage),
     )
     this.refreshUi()
     this.resolveAfterPlayerAction()
@@ -483,7 +494,7 @@ export class BattleScene extends Phaser.Scene {
     const damage = this.applyDamage(this.player, this.enemy.attackDamage)
     this.showDamageNumber(this.playerSprite, damage.toString(), '#ffb4a8')
     playSfx(this, SFX_KEYS.damagePlayer, { volume: 0.42 })
-    this.pushLog(`${this.enemy.name} counters for ${damage} damage.`)
+    this.pushLog(this.battleText.enemyCounter(this.enemy.name, damage))
     this.refreshUi()
 
     if (this.player.hp <= 0) {
@@ -515,7 +526,7 @@ export class BattleScene extends Phaser.Scene {
   private finishDefeat() {
     this.battleEnded = true
     playSfx(this, SFX_KEYS.battleDefeat, { volume: 0.5 })
-    this.pushLog('You fall back from the trial.')
+    this.pushLog(this.battleText.playerDefeatLog)
     this.refreshCommandMenu()
     this.time.delayedCall(1400, () =>
       this.returnFromBattle({
@@ -744,7 +755,7 @@ export class BattleScene extends Phaser.Scene {
 
   private refreshCommandMenu() {
     this.commandTexts.forEach((text, index) => {
-      const action = BATTLE_ACTIONS[this.encounter.actions[index]]
+      const action = getBattleAction(this.encounter.actions[index], this.language)
       const isSelected = index === this.selectedActionIndex
       const prefix = isSelected ? '> ' : '  '
 
