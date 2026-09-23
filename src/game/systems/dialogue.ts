@@ -1,8 +1,9 @@
-import Phaser from 'phaser'
-import { SFX_KEYS, playSfx } from './audio'
+import type Phaser from 'phaser'
+import { SFX_KEYS, playSfx } from './audio.ts'
 
 type TypewriteTextOptions = {
   shouldContinue?: () => boolean
+  skipOnConfirm?: boolean
 }
 
 export function typewriteText(
@@ -24,7 +25,18 @@ export function typewriteText(
       }
 
       resolved = true
+      if (options.skipOnConfirm) {
+        scene.input.keyboard?.off('keydown-ENTER', skip)
+        scene.input.keyboard?.off('keydown-SPACE', skip)
+        scene.input.off('pointerdown', skip)
+      }
       resolve()
+    }
+
+    const skip = () => {
+      timer.remove(false)
+      textNode.setText(text)
+      finish()
     }
 
     textNode.setText('')
@@ -52,6 +64,12 @@ export function typewriteText(
         }
       },
     })
+
+    if (options.skipOnConfirm) {
+      scene.input.keyboard?.once('keydown-ENTER', skip)
+      scene.input.keyboard?.once('keydown-SPACE', skip)
+      scene.input.once('pointerdown', skip)
+    }
 
     if (text.length === 0) {
       timer.remove(false)

@@ -321,7 +321,11 @@ export class BattleScene extends Phaser.Scene {
           fontStyle: '700',
           color: '#d7e0ff',
         })
-        .setInteractive({ useHandCursor: true })
+        .setInteractive({
+          hitArea: new Phaser.Geom.Rectangle(-22, -6, 292, 34),
+          hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+          useHandCursor: true,
+        })
 
       commandText.on('pointerover', () => {
         if (!this.canUseMenu()) {

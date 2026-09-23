@@ -101,7 +101,7 @@ export class IntroScene extends Phaser.Scene {
 
     for (const line of getIntroDialogue(profile.language)) {
       this.promptText.setText('')
-      await typewriteText(this, this.dialogueText, line)
+      await typewriteText(this, this.dialogueText, line, 28, { skipOnConfirm: true })
       this.promptText.setText(this.getIntroContinuePrompt())
       await waitForConfirm(this)
     }
@@ -199,10 +199,7 @@ export class IntroScene extends Phaser.Scene {
     const container = this.add.container(x, y, [frame, label, description])
 
     container.setSize(520, 64)
-    container.setInteractive(
-      new Phaser.Geom.Rectangle(-260, -32, 520, 64),
-      Phaser.Geom.Rectangle.Contains,
-    )
+    container.setInteractive({ useHandCursor: true })
     container.on('pointerover', () => {
       if (!this.languageMenuActive) {
         return
@@ -218,7 +215,11 @@ export class IntroScene extends Phaser.Scene {
       playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
       this.applyLanguageSelection()
     })
-    container.on('pointerdown', () => this.chooseLanguage(option.code))
+    container.on('pointerdown',
+      (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation()
+        this.chooseLanguage(option.code)
+      })
 
     return {
       container,
@@ -383,10 +384,7 @@ export class IntroScene extends Phaser.Scene {
     const container = this.add.container(x, y, [frame, label])
 
     container.setSize(360, 54)
-    container.setInteractive(
-      new Phaser.Geom.Rectangle(-180, -27, 360, 54),
-      Phaser.Geom.Rectangle.Contains,
-    )
+    container.setInteractive({ useHandCursor: true })
     container.on('pointerover', () => {
       if (!this.startMenuActive) {
         return
@@ -404,7 +402,11 @@ export class IntroScene extends Phaser.Scene {
       playSfx(this, SFX_KEYS.uiCursor, { volume: 0.3 })
       this.applyStartMenuSelection()
     })
-    container.on('pointerdown', () => this.chooseStartMenuOption(option))
+    container.on('pointerdown',
+      (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation()
+        this.chooseStartMenuOption(option)
+      })
 
     return {
       container,
@@ -559,14 +561,14 @@ export class IntroScene extends Phaser.Scene {
 
   private getIntroContinuePrompt() {
     if (this.language === 'es') {
-      return 'presiona enter para continuar'
+      return 'haz clic o presiona enter para continuar'
     }
 
     if (this.language === 'pt-BR') {
-      return 'aperte enter para continuar'
+      return 'clique ou aperte enter para continuar'
     }
 
-    return 'press enter to continue'
+    return 'click or press enter to continue'
   }
 
   private getNamePromptText() {

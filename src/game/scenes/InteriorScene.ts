@@ -525,9 +525,13 @@ export class InteriorScene extends Phaser.Scene {
         })
         .setLetterSpacing(0.7)
         .setPadding(6, 4, 6, 4)
+        .setFixedSize(132, 38)
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => this.selectRematchChoice(index === 0 ? 'yes' : 'no'))
-        .on('pointerdown', () => this.confirmRematchChoice())
+        .on('pointerdown', () => {
+          this.selectRematchChoice(index === 0 ? 'yes' : 'no')
+          this.confirmRematchChoice()
+        })
       choice.setStroke('#04070f', 2)
       choice.setShadow(0, 1, '#01040b', 1, false, true)
 

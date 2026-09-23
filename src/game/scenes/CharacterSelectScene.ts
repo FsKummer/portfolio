@@ -17,8 +17,8 @@ type CardKey = AvatarChoice
 
 type CharacterCard = {
   accent: string
-  baseY: number
   container: Phaser.GameObjects.Container
+  visual: Phaser.GameObjects.Container
   key: CardKey
 }
 
@@ -60,7 +60,10 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     for (const line of characterSelectPrompt(visitorName, this.language)) {
       this.promptText.setText('')
-      await typewriteText(this, this.dialogueText, line)
+      await typewriteText(this, this.dialogueText, line, 28, {
+        shouldContinue: () => !this.selectionLocked,
+        skipOnConfirm: true,
+      })
       this.promptText.setText(this.getSelectionPromptText())
       await this.waitForSelection()
     }
@@ -70,7 +73,9 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.selectionLocked = true
 
     this.promptText.setText('')
-    await typewriteText(this, this.dialogueText, characterSelectConfirm(visitorName, this.language))
+    await typewriteText(this, this.dialogueText, characterSelectConfirm(visitorName, this.language), 28, {
+      skipOnConfirm: true,
+    })
     this.promptText.setText(this.getStartPromptText())
     await waitForConfirm(this)
 
@@ -114,14 +119,14 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   private getStartPromptText() {
     if (this.language === 'es') {
-      return 'presiona enter para empezar'
+      return 'haz clic o presiona enter para empezar'
     }
 
     if (this.language === 'pt-BR') {
-      return 'aperte enter para começar'
+      return 'clique ou aperte enter para começar'
     }
 
-    return 'press enter to start'
+    return 'click or press enter to start'
   }
 
   private getAvatarLabel(key: CardKey) {
@@ -188,12 +193,11 @@ export class CharacterSelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
 
-    const container = this.add.container(x, y, [frame, portrait, label])
-    container.setSize(230, 286)
-    container.setInteractive(
-      new Phaser.Geom.Rectangle(-115, -143, 230, 286),
-      Phaser.Geom.Rectangle.Contains,
-    )
+    const visual = this.add.container(0, 0, [frame, portrait, label])
+    // Keep the click target still while the card lifts and scales on hover.
+    const container = this.add.container(x, y, [visual])
+    container.setSize(250, 320)
+    container.setInteractive({ useHandCursor: true })
 
     container.on('pointerover', () => {
       if (this.selectionLocked) {
@@ -211,22 +215,23 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.applySelectionState()
     })
 
-    container.on('pointerdown', () => {
-      if (this.selectionLocked) {
-        return
-      }
+    container.on('pointerdown',
+      (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        if (this.selectionLocked) {
+          return
+        }
 
-      this.selectedIndex = this.cards.findIndex((card) => card.key === key)
-      this.applySelectionState()
-      this.selectionLocked = true
-      playSfx(this, SFX_KEYS.uiConfirm)
-    })
+        event.stopPropagation()
+        this.selectedIndex = this.cards.findIndex((card) => card.key === key)
+        this.applySelectionState()
+        this.confirmSelection()
+      })
 
     return {
       key,
       accent,
-      baseY: y,
       container,
+      visual,
     }
   }
 
@@ -281,12 +286,12 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.cards.forEach((card, index) => {
       const isSelected = index === this.selectedIndex
       const borderColor = Phaser.Display.Color.HexStringToColor(card.accent).color
-      const frame = card.container.list[0] as Phaser.GameObjects.Rectangle
+      const frame = card.visual.list[0] as Phaser.GameObjects.Rectangle
 
       frame.setStrokeStyle(isSelected ? 4 : 2, borderColor, isSelected ? 1 : 0.5)
-      this.tweens.killTweensOf(card.container)
-      this.tweens.add({ targets: card.container, scale: isSelected ? 1.04 : 1,
-        y: card.baseY + (isSelected ? -8 : 0), duration: 200, ease: 'Cubic.easeOut' })
+      this.tweens.killTweensOf(card.visual)
+      this.tweens.add({ targets: card.visual, scale: isSelected ? 1.04 : 1,
+        y: isSelected ? -8 : 0, duration: 200, ease: 'Cubic.easeOut' })
     })
   }
 }
