@@ -1,4 +1,4 @@
-import Phaser from 'phaser'
+import type Phaser from 'phaser'
 
 export const MUSIC_KEYS = {
   battle: 'music-battle-the-world-awaits',
@@ -35,6 +35,14 @@ export const SFX_KEYS = {
 
 export type MusicKey = (typeof MUSIC_KEYS)[keyof typeof MUSIC_KEYS]
 export type SfxKey = (typeof SFX_KEYS)[keyof typeof SFX_KEYS]
+
+const MENU_SFX = new Set<SfxKey>([
+  SFX_KEYS.uiConfirm,
+  SFX_KEYS.uiCursor,
+  SFX_KEYS.uiCancel,
+  SFX_KEYS.textAdvance,
+  SFX_KEYS.textBlip,
+])
 
 const MUSIC_PATHS: Record<MusicKey, string> = {
   [MUSIC_KEYS.battle]: '/assets/audio/music/battle-the-world-awaits.mp3',
@@ -119,12 +127,15 @@ export function playSfx(
   key: SfxKey,
   config: Phaser.Types.Sound.SoundConfig = {},
 ) {
-  if (!scene.cache.audio.exists(key)) {
+  const sound = scene.sound
+  // Discard stale effects instead of playing them together on the first gesture.
+  if (sound.locked || ('context' in sound && sound.context.state !== 'running') ||
+      !scene.cache.audio.exists(key)) {
     return
   }
 
-  scene.sound.play(key, {
-    volume: 0.42,
+  sound.play(key, {
     ...config,
+    volume: (config.volume ?? 0.42) * (MENU_SFX.has(key) ? 0.35 : 1),
   })
 }
