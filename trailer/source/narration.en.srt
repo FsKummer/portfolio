@@ -1,0 +1,43 @@
+1
+00:00:01,000 --> 00:00:03,014
+Every journey begins with a choice.
+
+2
+00:00:06,000 --> 00:00:07,534
+This one begins with you.
+
+3
+00:00:11,000 --> 00:00:13,920
+Enter an island built from a developer's story.
+
+4
+00:00:17,500 --> 00:00:18,789
+Explore his world.
+
+5
+00:00:21,000 --> 00:00:23,916
+Discover the craft, the knowledge, and the discipline.
+
+6
+00:00:28,000 --> 00:00:29,545
+Challenge the guardians.
+
+7
+00:00:32,000 --> 00:00:33,367
+Choose your next move.
+
+8
+00:00:37,000 --> 00:00:38,446
+Claim three crystals.
+
+9
+00:00:42,000 --> 00:00:43,539
+Face the final trial.
+
+10
+00:00:47,000 --> 00:00:49,518
+From the open sea, to the world of code.
+
+11
+00:00:54,000 --> 00:00:56,983
+Felipe Kummer. Your adventure begins now.

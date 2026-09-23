@@ -1,0 +1,128 @@
+[
+  {
+    "file": "polish-01-intro",
+    "in": 1.0,
+    "duration": 5.5,
+    "kind": "title"
+  },
+  {
+    "file": "polish-02-hero",
+    "in": 0.2,
+    "duration": 4.5
+  },
+  {
+    "file": "fluid-island-crossing",
+    "in": 0.2,
+    "duration": 6.3
+  },
+  {
+    "file": "polish-03-guide",
+    "in": 0.1,
+    "duration": 4.5
+  },
+  {
+    "file": "fluid-projects-interior",
+    "in": 0.2,
+    "duration": 2.2
+  },
+  {
+    "file": "fluid-school-interior",
+    "in": 1.9,
+    "duration": 2.2
+  },
+  {
+    "file": "fluid-gym-interior",
+    "in": 0.1,
+    "duration": 2.2
+  },
+  {
+    "file": "polish-15-projects-fight",
+    "in": 0.0,
+    "duration": 4.1
+  },
+  {
+    "file": "polish-11-school-fight",
+    "in": 0.0,
+    "duration": 2.0
+  },
+  {
+    "file": "polish-11-school-fight",
+    "in": 3.2,
+    "duration": 2.9,
+    "crop": [
+      800,
+      450,
+      480,
+      88
+    ]
+  },
+  {
+    "file": "polish-16-ruby-crystal",
+    "in": 0.0,
+    "duration": 1.6
+  },
+  {
+    "file": "polish-12-knowledge-crystal",
+    "in": 0.0,
+    "duration": 1.6
+  },
+  {
+    "file": "polish-emerald-crystal",
+    "in": 0.0,
+    "duration": 1.6
+  },
+  {
+    "file": "polish-final-fight",
+    "in": 0.0,
+    "duration": 2.5
+  },
+  {
+    "file": "polish-final-fight",
+    "in": 3.2,
+    "duration": 2.6,
+    "crop": [
+      704,
+      396,
+      402,
+      162
+    ]
+  },
+  {
+    "file": "fluid-gym-crossing",
+    "in": 0.2,
+    "duration": 4.5
+  },
+  {
+    "file": "polish-gym-fight",
+    "in": 1.8,
+    "duration": 0.9,
+    "crop": [
+      768,
+      432,
+      408,
+      110
+    ]
+  },
+  {
+    "file": "polish-11-school-fight",
+    "in": 3.6,
+    "duration": 0.9,
+    "crop": [
+      800,
+      450,
+      480,
+      88
+    ]
+  },
+  {
+    "file": "polish-final-prize",
+    "in": 0.4,
+    "duration": 0.9
+  },
+  {
+    "file": "polish-01-intro",
+    "in": 4.8,
+    "duration": 6.5,
+    "kind": "title"
+  }
+]
