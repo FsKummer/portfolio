@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
-import { GAME_UI_FONT_FAMILY } from '../core/ui'
+import { fitTextWidth, GAME_UI_FONT_FAMILY } from '../core/ui'
 import {
   BATTLE_ENCOUNTERS,
   CRYSTAL_BATTLE_ENCOUNTER_IDS,
@@ -30,7 +30,7 @@ type CrystalRewardSceneData = {
 }
 
 const PANEL_COLOR = 0x04070f
-const PANEL_STROKE = 0xa4b6ff
+const PANEL_STROKE = 0xc4b17a
 
 export class CrystalRewardScene extends Phaser.Scene {
   private encounter!: BattleEncounter
@@ -140,7 +140,18 @@ export class CrystalRewardScene extends Phaser.Scene {
       crystalBody,
       shine,
     ])
-    crystalContainer.setScale(0.86)
+    crystalContainer.setScale(0.25).setAlpha(0)
+    this.tweens.add({ targets: crystalContainer, scale: 0.86, alpha: 1, duration: 650, ease: 'Back.easeOut' })
+    const orbit = this.add.circle(GAME_WIDTH / 2, 280, 155, colors.glow, 0)
+      .setStrokeStyle(2, colors.edge, 0.4).setScale(1, 0.28)
+    this.tweens.add({ targets: orbit, alpha: 0.2, scaleX: 1.15, duration: 1600, yoyo: true, repeat: -1 })
+    for (let i = 0; i < 12; i += 1) {
+      const angle = i * Math.PI / 6
+      const sparkle = this.add.star(GAME_WIDTH / 2, 220, 4, 2, 7, colors.edge).setAlpha(0)
+      this.tweens.add({ targets: sparkle, x: GAME_WIDTH / 2 + Math.cos(angle) * 220,
+        y: 220 + Math.sin(angle) * 154, alpha: { from: 1, to: 0 }, angle: 90,
+        duration: 1100, delay: 200 + i * 25, ease: 'Cubic.easeOut', onComplete: () => sparkle.destroy() })
+    }
 
     this.add
       .text(
@@ -154,6 +165,8 @@ export class CrystalRewardScene extends Phaser.Scene {
           fontSize: '30px',
           fontStyle: '700',
           color: '#f6f8ff',
+          align: 'center',
+          wordWrap: { width: 1060 },
         },
       )
       .setOrigin(0.5)
@@ -161,6 +174,7 @@ export class CrystalRewardScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: crystalContainer,
+      delay: 650,
       duration: 1500,
       ease: 'Sine.easeInOut',
       repeat: -1,
@@ -190,15 +204,18 @@ export class CrystalRewardScene extends Phaser.Scene {
     totalCrystalCount: number,
   ) {
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 126, 1060, 184, PANEL_COLOR, 0.9)
-      .setStrokeStyle(3, PANEL_STROKE, 0.55)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 140, 1060, 212, PANEL_COLOR, 0.94)
+      .setStrokeStyle(2, PANEL_STROKE, 0.75)
 
-    this.add.text(172, GAME_HEIGHT - 188, this.encounter.enemy.name, {
+    fitTextWidth(this.add.text(164, GAME_HEIGHT - 216, this.encounter.enemy.name, {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '22px',
       fontStyle: '700',
       color: '#d7e0ff',
-    })
+    }), 952)
+    this.add.text(GAME_WIDTH / 2, 446, `${collectedCrystalCount} / ${totalCrystalCount}`, {
+      fontFamily: GAME_UI_FONT_FAMILY, fontSize: '18px', color: '#fff1a8', fontStyle: '700',
+    }).setOrigin(0.5)
 
     const crystalLine = alreadyHadCrystal
       ? this.rewardText.answersAgain(crystalName)
@@ -209,16 +226,16 @@ export class CrystalRewardScene extends Phaser.Scene {
         : this.rewardText.collectAll(totalCrystalCount)
 
     this.add.text(
-      172,
-      GAME_HEIGHT - 146,
+      164,
+      GAME_HEIGHT - 172,
       `${crystalLine} ${progressLine}`,
       {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '24px',
+        fontSize: '22px',
         fontStyle: '700',
         color: '#f6f8ff',
-        lineSpacing: 10,
-        wordWrap: { width: 936 },
+        lineSpacing: 6,
+        wordWrap: { width: 952, useAdvancedWrap: true },
       },
     )
 

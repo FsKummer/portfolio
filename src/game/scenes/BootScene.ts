@@ -63,6 +63,8 @@ export class BootScene extends Phaser.Scene {
     this.createTextures()
     this.createCharacterAnimations('adam')
     this.createCharacterAnimations('amelia')
+    this.createCharacterAnimations('alex')
+    this.createCharacterAnimations('bob')
     this.scene.start('intro')
   }
 
@@ -76,7 +78,7 @@ export class BootScene extends Phaser.Scene {
     graphics.destroy()
   }
 
-  private createCharacterAnimations(characterKey: 'adam' | 'amelia') {
+  private createCharacterAnimations(characterKey: 'adam' | 'amelia' | 'alex' | 'bob') {
     const idleSheet = `${characterKey}-idle`
     const runSheet = `${characterKey}-run`
 
@@ -91,6 +93,7 @@ export class BootScene extends Phaser.Scene {
         repeat: -1,
       })
 
+      if (!this.textures.exists(runSheet)) return
       this.anims.create({
         key: `${characterKey}-walk-${direction}`,
         frames: this.anims.generateFrameNumbers(runSheet, {

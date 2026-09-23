@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
-import { GAME_UI_FONT_FAMILY } from '../core/ui'
+import { fitTextWidth, GAME_UI_FONT_FAMILY, paginateText, revealPanel } from '../core/ui'
 import { type BattleEncounter, getBattleEncounter } from '../data/battles'
 import { getInteriorDialogueHint, getInteriorText } from '../data/localizedText'
 import { getPortfolioDialogues } from '../data/portfolioContent'
@@ -15,7 +15,7 @@ import {
   supportsVirtualController,
 } from '../store/virtualControls'
 import { SFX_KEYS, playSfx, stopMusic } from '../systems/audio'
-import { paginateDialogueText, typewriteText } from '../systems/dialogue'
+import { typewriteText } from '../systems/dialogue'
 import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
@@ -54,7 +54,6 @@ const INTERACTION_REACH = 30
 const DIALOGUE_PANEL_WIDTH = 920
 const DIALOGUE_PANEL_HEIGHT = 272
 const DIALOGUE_PANEL_BOTTOM_MARGIN = 80
-const INTERIOR_DIALOGUE_PAGE_MAX_CHARS = 180
 const NPC_BODY_BLOCKER_WIDTH = 0.58
 const NPC_BODY_BLOCKER_HEIGHT = 22 / 32
 const NPC_BODY_BLOCKER_Y_OFFSET = 5 / 32
@@ -343,6 +342,7 @@ export class InteriorScene extends Phaser.Scene {
       npcSprite = this.add.sprite(worldX, worldY + 8, object.sprite, 18)
       npcSprite.setScale(this.getCharacterScale())
       npcSprite.setDepth(worldY + 12)
+      npcSprite.play(`${object.sprite.replace('-idle', '')}-idle-down`)
       npcBodyBounds = this.getNpcBodyBounds(npcSprite)
     }
 
@@ -453,6 +453,7 @@ export class InteriorScene extends Phaser.Scene {
     })
       .setLetterSpacing(0.5)
     this.helpPanel.add([panelBackground, titleText, controlsText])
+    fitTextWidth(titleText, 344)
 
     this.prompt = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 100, '', {
@@ -474,8 +475,8 @@ export class InteriorScene extends Phaser.Scene {
     const panelLeft = -dialoguePanelWidth / 2 + 44
     const panelTop = -DIALOGUE_PANEL_HEIGHT / 2 + 24
     const dialogueBackground = this.add
-      .rectangle(0, 0, dialoguePanelWidth, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.78)
-      .setStrokeStyle(3, 0xa4b6ff, 0.55)
+      .rectangle(0, 0, dialoguePanelWidth, DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.94)
+      .setStrokeStyle(2, 0xc4b17a, 0.75)
     const dialogueTitle = this.add
       .text(panelLeft, panelTop, this.getInteriorTitle(), {
         fontFamily: GAME_UI_FONT_FAMILY,
@@ -494,8 +495,8 @@ export class InteriorScene extends Phaser.Scene {
       fontSize: '24px',
       fontStyle: '700',
       color: '#f6f8ff',
-      wordWrap: { width: dialoguePanelWidth - 112 },
-      lineSpacing: 12,
+      wordWrap: { width: dialoguePanelWidth - 112, useAdvancedWrap: true },
+      lineSpacing: 8,
     })
       .setLetterSpacing(0.8)
       .setPadding(6, 4, 6, 4)
@@ -843,11 +844,11 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
-    title.setText(titleText)
-    this.dialoguePages = paginateDialogueText(message, INTERIOR_DIALOGUE_PAGE_MAX_CHARS)
+    fitTextWidth(title.setText(titleText).setFontSize(22), DIALOGUE_PANEL_WIDTH - 112)
+    this.dialoguePages = paginateText(this.dialogueBody, message, options.showRematchChoices ? 106 : 140)
     this.dialoguePageIndex = 0
     this.dialoguePageOptions = options
-    this.dialogueBox.setVisible(true)
+    revealPanel(this, this.dialogueBox)
     this.dialogueOpen = true
     this.prompt?.setVisible(false)
     this.showDialoguePage(hintText)
@@ -1133,10 +1134,12 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private playIdleAnimation() {
+    if (this.player) this.player.anims.timeScale = 1
     this.player?.anims.play(`${this.playerAnimPrefix}-idle-${this.getAnimationDirection()}`, true)
   }
 
   private playWalkAnimation() {
+    if (this.player) this.player.anims.timeScale = (this.player.body?.velocity.length() ?? this.getWalkSpeed()) / this.getWalkSpeed()
     this.player?.anims.play(`${this.playerAnimPrefix}-walk-${this.getAnimationDirection()}`, true)
     this.playStepSound()
   }

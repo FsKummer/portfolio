@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
-import { GAME_UI_FONT_FAMILY } from '../core/ui'
+import { fitTextWidth, GAME_UI_FONT_FAMILY, paginateText, revealPanel } from '../core/ui'
 import {
   COLLISION_BLOCKER,
   type HouseZone,
@@ -36,7 +36,7 @@ import {
   supportsVirtualController,
 } from '../store/virtualControls'
 import { MUSIC_KEYS, SFX_KEYS, playMusic, playSfx } from '../systems/audio'
-import { paginateDialogueText, typewriteText } from '../systems/dialogue'
+import { typewriteText } from '../systems/dialogue'
 import { playSquareCloseTransition } from '../systems/squareTransition'
 
 type Direction = 'left' | 'up' | 'right' | 'down'
@@ -70,7 +70,6 @@ const PLAYER_SCALE = 3
 const WORLD_DIALOGUE_PANEL_WIDTH = 920
 const WORLD_DIALOGUE_PANEL_HEIGHT = 228
 const WORLD_DIALOGUE_PANEL_BOTTOM_MARGIN = 76
-const WORLD_DIALOGUE_PAGE_MAX_CHARS = 190
 const QUEST_GUIDE_SCALE = 3
 const QUEST_GUIDE_SPAWN_OFFSET = { x: 76, y: -12 } as const
 const QUEST_GUIDE_SPARKLE_COUNT = 22
@@ -345,7 +344,9 @@ export class WorldScene extends Phaser.Scene {
 
     const { aura, guide, shadow } = this.createQuestGuide()
 
+    const body = this.dialogueBody
     this.questGuideDialogueLines = getPortfolioDialogues(this.language).questGuide(visitorName)
+      .flatMap((line) => paginateText(body, line, 110))
     this.questGuideLineIndex = 0
     this.questGuideIntroActive = true
     this.questGuideDialogueReady = false
@@ -551,6 +552,7 @@ export class WorldScene extends Phaser.Scene {
       .setLetterSpacing(0.5)
 
     this.helpPanel.add([panelBackground, welcomeText, controlsText])
+    fitTextWidth(welcomeText, 344)
 
     this.interactionPrompt = this.add
       .text(384, 332, '', {
@@ -568,8 +570,8 @@ export class WorldScene extends Phaser.Scene {
       .setVisible(false)
 
     const dialogueBackground = this.add
-      .rectangle(0, 0, dialoguePanelWidth, WORLD_DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.8)
-      .setStrokeStyle(3, 0xa4b6ff, 0.55)
+      .rectangle(0, 0, dialoguePanelWidth, WORLD_DIALOGUE_PANEL_HEIGHT, 0x04070f, 0.94)
+      .setStrokeStyle(2, 0xc4b17a, 0.75)
     const dialogueTitle = this.add
       .text(dialoguePanelLeft, dialoguePanelTop, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
@@ -588,8 +590,8 @@ export class WorldScene extends Phaser.Scene {
       fontSize: '22px',
       fontStyle: '700',
       color: '#f6f8ff',
-      wordWrap: { width: dialoguePanelWidth - 112 },
-      lineSpacing: 12,
+      wordWrap: { width: dialoguePanelWidth - 112, useAdvancedWrap: true },
+      lineSpacing: 8,
     })
       .setLetterSpacing(0.8)
       .setPadding(6, 4, 6, 4)
@@ -1075,10 +1077,10 @@ export class WorldScene extends Phaser.Scene {
     }
 
     const title = this.dialogueBox.getData('title') as Phaser.GameObjects.Text
-    title.setText(titleText)
-    this.dialoguePages = paginateDialogueText(message, WORLD_DIALOGUE_PAGE_MAX_CHARS)
+    fitTextWidth(title.setText(titleText).setFontSize(22), WORLD_DIALOGUE_PANEL_WIDTH - 112)
+    this.dialoguePages = paginateText(this.dialogueBody, message, 110)
     this.dialoguePageIndex = 0
-    this.dialogueBox.setVisible(true)
+    revealPanel(this, this.dialogueBox)
     this.dialogueOpen = true
     this.interactionPrompt?.setVisible(false)
     this.showDialoguePage(hintText, onComplete)
@@ -1152,9 +1154,10 @@ export class WorldScene extends Phaser.Scene {
 
     this.finalSpark?.setVisible(false)
     this.activeFinalSpark = false
+    const body = this.dialogueBody
     this.finalGuideDialogueLines = getPortfolioDialogues(this.language).finalGuideChallenge(
       profile.visitorName || 'traveler',
-    )
+    ).flatMap((line) => paginateText(body, line, 110))
     this.finalGuideLineIndex = 0
     this.finalGuideIntroActive = true
     this.finalGuideDialogueReady = false
@@ -1535,11 +1538,13 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private playIdleAnimation() {
+    if (this.player) this.player.anims.timeScale = 1
     const animationDirection = this.getAnimationDirection()
     this.player?.anims.play(`${this.playerAnimPrefix}-idle-${animationDirection}`, true)
   }
 
   private playWalkAnimation() {
+    if (this.player) this.player.anims.timeScale = (this.player.body?.velocity.length() ?? PLAYER_SPEED) / PLAYER_SPEED
     const animationDirection = this.getAnimationDirection()
     this.player?.anims.play(`${this.playerAnimPrefix}-walk-${animationDirection}`, true)
     this.playStepSound()

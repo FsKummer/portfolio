@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../core/config'
-import { GAME_UI_FONT_FAMILY } from '../core/ui'
+import { fitTextWidth, GAME_UI_FONT_FAMILY, paginateText } from '../core/ui'
 import {
   type BattleActionId,
   type BattleEncounter,
@@ -65,8 +65,8 @@ const PLAYER_STATS: FighterState = {
 }
 
 const BATTLE_PANEL_COLOR = 0x04070f
-const BATTLE_PANEL_STROKE = 0xa4b6ff
-const BAR_WIDTH = 170
+const BATTLE_PANEL_STROKE = 0xc4b17a
+const BAR_WIDTH = 150
 const BAR_HEIGHT = 14
 const BATTLE_MAP_SCALE = 3
 const BATTLE_TILE_SIZE = 48
@@ -74,6 +74,7 @@ const DEFAULT_BATTLE_CHARACTER_SCALE = 5.6
 
 export class BattleScene extends Phaser.Scene {
   private commandTexts: Phaser.GameObjects.Text[] = []
+  private commandHighlight?: Phaser.GameObjects.Rectangle
   private combatLog: string[] = []
   private encounter!: BattleEncounter
   private enemy!: FighterState
@@ -201,6 +202,10 @@ export class BattleScene extends Phaser.Scene {
       .setScale(characterScale)
       .setDepth(20)
 
+    if (this.encounter.enemy.spriteKey !== 'mystic-guide') {
+      this.enemySprite.play(`${this.encounter.enemy.spriteKey.replace('-idle', '')}-idle-down`)
+    }
+
     this.add
       .ellipse(
         this.playerSprite.x,
@@ -222,7 +227,7 @@ export class BattleScene extends Phaser.Scene {
       )
       .setDepth(10)
 
-    this.add
+    const heading = this.add
       .text(GAME_WIDTH / 2, 44, this.encounter.title, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '34px',
@@ -231,6 +236,7 @@ export class BattleScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setStroke('#01040b', 4)
+    fitTextWidth(heading, GAME_WIDTH - 144)
   }
 
   private getBattleScreenPosition(tile: { x: number; y: number }) {
@@ -253,31 +259,31 @@ export class BattleScene extends Phaser.Scene {
 
   private createStatusPanel(x: number, y: number, title: string, isPlayer: boolean) {
     this.add
-      .rectangle(x, y, 320, 128, BATTLE_PANEL_COLOR, 0.84)
+      .rectangle(x, y, 320, 128, BATTLE_PANEL_COLOR, 0.94)
       .setOrigin(0)
-      .setStrokeStyle(3, BATTLE_PANEL_STROKE, 0.55)
+      .setStrokeStyle(2, BATTLE_PANEL_STROKE, 0.65)
 
-    this.add.text(x + 28, y + 20, title, {
+    fitTextWidth(this.add.text(x + 28, y + 20, title, {
       fontFamily: GAME_UI_FONT_FAMILY,
       fontSize: '22px',
       fontStyle: '700',
       color: '#f6f8ff',
-    })
+    }), 264)
 
     const hpText = this.add.text(x + 28, y + 54, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '16px',
+      fontSize: '15px',
       fontStyle: '700',
       color: '#d7e0ff',
     })
     const mpText = this.add.text(x + 28, y + 88, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '16px',
+      fontSize: '15px',
       fontStyle: '700',
       color: '#d7e0ff',
     })
-    const hpFill = this.createBar(x + 118, y + 62, 0x6ff0a3)
-    const mpFill = this.createBar(x + 118, y + 96, 0x7eb6ff)
+    const hpFill = this.createBar(x + 142, y + 62, 0x6ff0a3)
+    const mpFill = this.createBar(x + 142, y + 96, 0x7eb6ff)
 
     if (isPlayer) {
       this.playerHpText = hpText
@@ -300,9 +306,11 @@ export class BattleScene extends Phaser.Scene {
 
   private createCommandMenu() {
     this.add
-      .rectangle(72, GAME_HEIGHT - 178, 328, 138, BATTLE_PANEL_COLOR, 0.88)
+      .rectangle(72, GAME_HEIGHT - 178, 328, 138, BATTLE_PANEL_COLOR, 0.95)
       .setOrigin(0)
-      .setStrokeStyle(3, BATTLE_PANEL_STROKE, 0.6)
+      .setStrokeStyle(2, BATTLE_PANEL_STROKE, 0.65)
+
+    this.commandHighlight = this.add.rectangle(90, GAME_HEIGHT - 156, 292, 34, 0xffe7a3, 0.12).setOrigin(0)
 
     this.commandTexts = this.encounter.actions.map((actionId, index) => {
       const action = getBattleAction(actionId, this.language)
@@ -338,17 +346,17 @@ export class BattleScene extends Phaser.Scene {
 
   private createCombatLog() {
     this.add
-      .rectangle(426, GAME_HEIGHT - 178, 782, 138, BATTLE_PANEL_COLOR, 0.88)
+      .rectangle(426, GAME_HEIGHT - 178, 782, 138, BATTLE_PANEL_COLOR, 0.95)
       .setOrigin(0)
-      .setStrokeStyle(3, BATTLE_PANEL_STROKE, 0.6)
+      .setStrokeStyle(2, BATTLE_PANEL_STROKE, 0.65)
 
-    this.logText = this.add.text(462, GAME_HEIGHT - 146, '', {
+    this.logText = this.add.text(454, GAME_HEIGHT - 158, '', {
       fontFamily: GAME_UI_FONT_FAMILY,
-      fontSize: '21px',
+      fontSize: '20px',
       fontStyle: '700',
       color: '#f6f8ff',
-      lineSpacing: 8,
-      wordWrap: { width: 700 },
+      lineSpacing: 6,
+      wordWrap: { width: 724, useAdvancedWrap: true },
     })
     this.logText.setStroke('#01040b', 2)
   }
@@ -442,6 +450,8 @@ export class BattleScene extends Phaser.Scene {
     this.turnLocked = true
     this.itemUsed = true
     const healed = this.applyHealing(this.player, effect.amount)
+    this.createImpactBurst(this.playerSprite!.x, this.playerSprite!.y - 44, 0x6ff0a3)
+    this.showDamageNumber(this.playerSprite, `+${healed}`, '#9affbe')
     playSfx(this, SFX_KEYS.itemUse, { volume: 0.42 })
     this.pushLog(
       healed > 0
@@ -513,6 +523,9 @@ export class BattleScene extends Phaser.Scene {
     playSfx(this, SFX_KEYS.battleVictory, { volume: 0.5 })
     this.pushLog(this.encounter.victoryLog)
     this.refreshCommandMenu()
+    if (this.enemySprite) {
+      this.tweens.add({ targets: this.enemySprite, alpha: 0, duration: 700, delay: 200, ease: 'Sine.easeIn' })
+    }
     this.time.delayedCall(1400, () => {
       if (this.encounter.reward.kind === 'final') {
         this.openFinalReward()
@@ -632,21 +645,23 @@ export class BattleScene extends Phaser.Scene {
     playSfx(this, SFX_KEYS.attackSwing, { volume: 0.38 })
     this.tweens.add({
       targets: attacker,
-      duration: 120,
-      ease: 'Quad.easeOut',
-      x: startX + lunge.x,
-      y: startY + lunge.y,
+      duration: 90,
+      x: startX - lunge.x * 0.15,
+      y: startY - lunge.y * 0.15,
       onComplete: () => {
-        playSfx(this, SFX_KEYS.attackHit, { volume: 0.44 })
-        this.createImpactBurst(target.x, target.y - 40, 0xfff1a8)
-        this.flashSprite(target, 0xffffff)
         this.tweens.add({
           targets: attacker,
-          duration: 160,
-          ease: 'Quad.easeIn',
-          x: startX,
-          y: startY,
-          onComplete,
+          duration: 130,
+          ease: 'Cubic.easeOut',
+          x: startX + lunge.x,
+          y: startY + lunge.y,
+          onComplete: () => {
+            playSfx(this, SFX_KEYS.attackHit, { volume: 0.44 })
+            this.createImpactBurst(target.x, target.y - 40, 0xfff1a8)
+            this.flashSprite(target, 0xffffff)
+            onComplete()
+            this.tweens.add({ targets: attacker, x: startX, y: startY, duration: 220, ease: 'Sine.easeInOut' })
+          },
         })
       },
     })
@@ -664,14 +679,22 @@ export class BattleScene extends Phaser.Scene {
       .circle(attacker.x + castVector.x, attacker.y + castVector.y, 12, 0x9bd7ff, 0.95)
       .setDepth(35)
     const aura = this.add.circle(projectile.x, projectile.y, 24, 0x7eb6ff, 0.22).setDepth(34)
+    const rune = this.add.circle(attacker.x, attacker.y + 36, 44, 0x7eb6ff, 0.04)
+      .setStrokeStyle(3, 0x9bd7ff, 0.8).setScale(0.2, 0.1).setDepth(19)
+    this.tweens.add({ targets: rune, scaleX: 1.5, scaleY: 0.55, alpha: 0, duration: 620,
+      onComplete: () => rune.destroy() })
+    projectile.setScale(0)
+    aura.setScale(0)
+    this.tweens.add({ targets: [projectile, aura], scale: 1, duration: 200, ease: 'Back.easeOut' })
 
     playSfx(this, SFX_KEYS.magicCast, { volume: 0.42 })
-    this.time.delayedCall(120, () => playSfx(this, SFX_KEYS.magicProjectile, { volume: 0.34 }))
+    this.time.delayedCall(200, () => playSfx(this, SFX_KEYS.magicProjectile, { volume: 0.34 }))
 
     this.tweens.add({
       targets: [projectile, aura],
-      duration: 260,
-      ease: 'Sine.easeInOut',
+      delay: 200,
+      duration: 360,
+      ease: 'Cubic.easeIn',
       x: target.x,
       y: target.y - 54,
       onComplete: () => {
@@ -687,11 +710,21 @@ export class BattleScene extends Phaser.Scene {
 
   private createImpactBurst(x: number, y: number, color: number) {
     const burst = this.add.star(x, y, 8, 10, 34, color, 0.9).setDepth(40)
+    const ring = this.add.circle(x, y, 20).setStrokeStyle(3, color, 0.85).setDepth(39)
+    this.tweens.add({ targets: ring, scale: 3, alpha: 0, duration: 380, ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy() })
+    for (let i = 0; i < 8; i += 1) {
+      const angle = i * Math.PI / 4
+      const spark = this.add.rectangle(x, y, 5, 12, color).setRotation(angle).setDepth(41)
+      this.tweens.add({ targets: spark, x: x + Math.cos(angle) * 68,
+        y: y + Math.sin(angle) * 68, alpha: 0, scale: 0.3, duration: 340,
+        ease: 'Cubic.easeOut', onComplete: () => spark.destroy() })
+    }
 
     this.tweens.add({
       targets: burst,
       alpha: 0,
-      duration: 220,
+      duration: 320,
       ease: 'Quad.easeOut',
       scale: 1.5,
       onComplete: () => burst.destroy(),
@@ -703,8 +736,8 @@ export class BattleScene extends Phaser.Scene {
       return
     }
 
-    sprite.setTint(color)
-    this.time.delayedCall(120, () => sprite.clearTint())
+    sprite.setTintFill(color)
+    this.time.delayedCall(90, () => sprite.active && sprite.clearTint())
   }
 
   private showDamageNumber(
@@ -719,18 +752,22 @@ export class BattleScene extends Phaser.Scene {
     const damageText = this.add
       .text(target.x, target.y - 118, text, {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '26px',
+        fontSize: '32px',
         fontStyle: '700',
         color,
       })
       .setOrigin(0.5)
       .setDepth(60)
       .setStroke('#01040b', 4)
+      .setScale(0.65)
+
+    this.tweens.add({ targets: damageText, scale: 1, duration: 160, ease: 'Back.easeOut' })
 
     this.tweens.add({
       targets: damageText,
       alpha: 0,
-      duration: 620,
+      delay: 160,
+      duration: 680,
       ease: 'Quad.easeOut',
       y: damageText.y - 34,
       onComplete: () => damageText.destroy(),
@@ -747,13 +784,26 @@ export class BattleScene extends Phaser.Scene {
     this.playerMpText?.setText(`MP ${this.player.mp}/${this.player.maxMp}`)
     this.enemyHpText?.setText(`HP ${this.enemy.hp}/${this.enemy.maxHp}`)
     this.enemyMpText?.setText(`MP ${this.enemy.mp}/${this.enemy.maxMp}`)
-    this.playerHpFill?.setScale(this.player.hp / this.player.maxHp, 1)
-    this.playerMpFill?.setScale(this.player.mp / this.player.maxMp, 1)
-    this.enemyHpFill?.setScale(this.enemy.hp / this.enemy.maxHp, 1)
-    this.enemyMpFill?.setScale(this.enemy.maxMp === 0 ? 0 : this.enemy.mp / this.enemy.maxMp, 1)
+    const bars = [
+      [this.playerHpFill, this.player.hp / this.player.maxHp],
+      [this.playerMpFill, this.player.mp / this.player.maxMp],
+      [this.enemyHpFill, this.enemy.hp / this.enemy.maxHp],
+      [this.enemyMpFill, this.enemy.maxMp === 0 ? 0 : this.enemy.mp / this.enemy.maxMp],
+    ] as const
+    for (const [bar, ratio] of bars) {
+      if (!bar) continue
+      this.tweens.killTweensOf(bar)
+      this.tweens.add({ targets: bar, scaleX: ratio, duration: 380, ease: 'Cubic.easeOut' })
+    }
   }
 
   private refreshCommandMenu() {
+    if (this.commandHighlight) {
+      this.tweens.killTweensOf(this.commandHighlight)
+      this.tweens.add({ targets: this.commandHighlight,
+        y: GAME_HEIGHT - 156 + this.selectedActionIndex * 38,
+        alpha: this.canUseMenu() ? 1 : 0.3, duration: 120, ease: 'Cubic.easeOut' })
+    }
     this.commandTexts.forEach((text, index) => {
       const action = getBattleAction(this.encounter.actions[index], this.language)
       const isSelected = index === this.selectedActionIndex
@@ -768,7 +818,15 @@ export class BattleScene extends Phaser.Scene {
   private pushLog(message: string) {
     this.combatLog.push(message)
     this.combatLog = this.combatLog.slice(-4)
-    this.logText?.setText(this.combatLog.join('\n'))
+    if (!this.logText) return
+    this.logText.setText(this.combatLog.join('\n'))
+    while (this.logText.height > 96 && this.combatLog.length > 1) {
+      this.combatLog.shift()
+      this.logText.setText(this.combatLog.join('\n'))
+    }
+    if (this.logText.height > 96) {
+      this.logText.setText(paginateText(this.logText, message, 96).at(-1) ?? '')
+    }
   }
 
   private canUseMenu() {

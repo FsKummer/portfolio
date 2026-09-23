@@ -5,59 +5,6 @@ type TypewriteTextOptions = {
   shouldContinue?: () => boolean
 }
 
-export function formatDialogueText(message: string) {
-  return message
-    .split('\n')
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .join('\n')
-}
-
-export function paginateDialogueText(message: string, maxCharacters = 190) {
-  const normalizedBlocks = message
-    .split(/\n\s*\n/)
-    .map((block) => formatDialogueText(block))
-    .filter(Boolean)
-
-  const pages = normalizedBlocks.flatMap((block) => splitDialogueBlock(block, maxCharacters))
-
-  return pages.length > 0 ? pages : ['']
-}
-
-function splitDialogueBlock(block: string, maxCharacters: number) {
-  if (block.length <= maxCharacters) {
-    return [block]
-  }
-
-  const sentences = block.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g) ?? [block]
-  const pages: string[] = []
-  let currentPage = ''
-
-  sentences.forEach((sentence) => {
-    const normalizedSentence = sentence.replace(/\s+/g, ' ').trim()
-
-    if (!normalizedSentence) {
-      return
-    }
-
-    const nextPage = currentPage ? `${currentPage} ${normalizedSentence}` : normalizedSentence
-
-    if (nextPage.length <= maxCharacters || !currentPage) {
-      currentPage = nextPage
-      return
-    }
-
-    pages.push(currentPage)
-    currentPage = normalizedSentence
-  })
-
-  if (currentPage) {
-    pages.push(currentPage)
-  }
-
-  return pages
-}
-
 export function typewriteText(
   scene: Phaser.Scene,
   textNode: Phaser.GameObjects.Text,
@@ -65,6 +12,8 @@ export function typewriteText(
   speed = 28,
   options: TypewriteTextOptions = {},
 ) {
+  // Wrap the complete sentence first so words do not jump as letters appear.
+  text = textNode.getWrappedText(text).join('\n')
   return new Promise<void>((resolve) => {
     let index = 0
     let resolved = false

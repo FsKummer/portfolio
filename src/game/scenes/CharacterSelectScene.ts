@@ -41,6 +41,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   create() {
     const profile = loadVisitorProfile()
 
+    this.selectionLocked = false
+    this.cards = []
     this.language = profile.language
     this.selectedIndex = profile.avatar === 'girl' ? 1 : 0
     this.cameras.main.setBackgroundColor('#070b18')
@@ -72,7 +74,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.promptText.setText(this.getStartPromptText())
     await waitForConfirm(this)
 
-    this.scene.start('world')
+    this.cameras.main.fadeOut(260, 3, 5, 16)
+    this.time.delayedCall(270, () => this.scene.start('world'))
   }
 
   private createBackdrop() {
@@ -281,8 +284,9 @@ export class CharacterSelectScene extends Phaser.Scene {
       const frame = card.container.list[0] as Phaser.GameObjects.Rectangle
 
       frame.setStrokeStyle(isSelected ? 4 : 2, borderColor, isSelected ? 1 : 0.5)
-      card.container.setScale(isSelected ? 1.03 : 1)
-      card.container.setY(card.baseY + (isSelected ? -4 : 0))
+      this.tweens.killTweensOf(card.container)
+      this.tweens.add({ targets: card.container, scale: isSelected ? 1.04 : 1,
+        y: card.baseY + (isSelected ? -8 : 0), duration: 200, ease: 'Cubic.easeOut' })
     })
   }
 }

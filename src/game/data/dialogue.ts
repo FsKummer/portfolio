@@ -2,19 +2,19 @@ import type { LanguageCode } from '../store/sessionStore'
 
 const introDialogueByLanguage: Record<LanguageCode, readonly string[]> = {
   en: [
-  'hey there traveler.',
-  'before you drift into felipe kummer\'s portfolio, i need one thing.',
-  'mind to say your name?',
+    'Welcome, traveler.',
+    'A new adventure awaits in Felipe Kummer\'s world.',
+    'What should we call you?',
   ],
   es: [
-    'hola, viajero.',
-    'antes de entrar en el portfolio de felipe kummer, necesito una cosa.',
-    'me dices tu nombre?',
+    'Hola, viajero.',
+    'Una nueva aventura te espera en el mundo de Felipe Kummer.',
+    '¿Cómo te llamas?',
   ],
   'pt-BR': [
-    'ola, viajante.',
-    'antes de entrar no portfolio do felipe kummer, preciso de uma coisa.',
-    'qual e o seu nome?',
+    'Olá, viajante.',
+    'Uma nova aventura espera por você no mundo de Felipe Kummer.',
+    'Qual é o seu nome?',
   ],
 } as const
 
@@ -26,11 +26,11 @@ export function getIntroDialogue(language: LanguageCode) {
 
 export const characterSelectPrompt = (visitorName: string, language: LanguageCode = 'en') => {
   if (language === 'es') {
-    return [`${visitorName}, elige al viajero que llevara tu historia por este mundo.`] as const
+    return [`${visitorName}, elige al viajero que llevará tu historia por este mundo.`] as const
   }
 
   if (language === 'pt-BR') {
-    return [`${visitorName}, escolha o viajante que levara sua historia por este mundo.`] as const
+    return [`${visitorName}, escolha o viajante que levará sua história por este mundo.`] as const
   }
 
   return [`${visitorName}, choose the traveler who will carry your story through this world.`] as const
@@ -38,12 +38,12 @@ export const characterSelectPrompt = (visitorName: string, language: LanguageCod
 
 export const characterSelectConfirm = (visitorName: string, language: LanguageCode = 'en') => {
   if (language === 'es') {
-    return `bienvenido al portfolio de aventura de Felipe Kummer, ${visitorName}.`
+    return `Bienvenido a la aventura de Felipe Kummer, ${visitorName}.`
   }
 
   if (language === 'pt-BR') {
-    return `bem-vindo ao portfolio de aventura de Felipe Kummer, ${visitorName}.`
+    return `Bem-vindo à aventura de Felipe Kummer, ${visitorName}.`
   }
 
-  return `ok welcome to the adventure portfolio of Felipe Kummer, ${visitorName}.`
+  return `Welcome to Felipe Kummer's adventure, ${visitorName}.`
 }

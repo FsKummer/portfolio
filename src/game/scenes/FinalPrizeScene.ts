@@ -18,7 +18,7 @@ type FinalPrizeSceneData = {
 }
 
 const PANEL_COLOR = 0x04070f
-const PANEL_STROKE = 0xa4b6ff
+const PANEL_STROKE = 0xc4b17a
 
 export class FinalPrizeScene extends Phaser.Scene {
   private finalPrizeText!: ReturnType<typeof getFinalPrizeText>
@@ -117,8 +117,8 @@ export class FinalPrizeScene extends Phaser.Scene {
 
   private createPrizePanel() {
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 174, 1060, 312, PANEL_COLOR, 0.92)
-      .setStrokeStyle(3, PANEL_STROKE, 0.6)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 180, 1060, 328, PANEL_COLOR, 0.94)
+      .setStrokeStyle(2, PANEL_STROKE, 0.75)
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 310, this.finalPrizeText.title, {
@@ -136,28 +136,28 @@ export class FinalPrizeScene extends Phaser.Scene {
       this.finalPrizeText.body,
       {
         fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '22px',
+        fontSize: '20px',
         fontStyle: '700',
         color: '#f6f8ff',
-        lineSpacing: 10,
-        wordWrap: { width: 952 },
+        lineSpacing: 6,
+        wordWrap: { width: 952, useAdvancedWrap: true },
       },
     )
 
-    this.createContactLink(GAME_HEIGHT - 200, 'Email', portfolioContact.email, `mailto:${portfolioContact.email}`)
+    this.createContactLink(GAME_HEIGHT - 208, 'Email', portfolioContact.email, `mailto:${portfolioContact.email}`)
     this.createContactLink(
-      GAME_HEIGHT - 168,
+      GAME_HEIGHT - 178,
       'LinkedIn',
       portfolioContact.linkedIn,
       portfolioContact.linkedInUrl,
     )
     this.createContactLink(
-      GAME_HEIGHT - 136,
+      GAME_HEIGHT - 148,
       'GitHub',
       portfolioContact.github,
       portfolioContact.githubUrl,
     )
-    this.createContactLink(GAME_HEIGHT - 104, 'CV', this.finalPrizeText.downloadPdf, portfolioContact.cvPath)
+    this.createContactLink(GAME_HEIGHT - 118, 'CV', this.finalPrizeText.downloadPdf, portfolioContact.cvPath)
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 70, this.finalPrizeText.scheduleCall, {
@@ -172,25 +172,13 @@ export class FinalPrizeScene extends Phaser.Scene {
       .on('pointerdown', () => this.openScheduleLink())
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 42, SCHEDULE_CALL_URL, {
-        fontFamily: GAME_UI_FONT_FAMILY,
-        fontSize: '15px',
-        fontStyle: '700',
-        color: '#b7c4ff',
-      })
-      .setOrigin(0.5)
-      .setStroke('#01040b', 2)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.openScheduleLink())
-
-    this.add
-      .text(GAME_WIDTH - 92, GAME_HEIGHT - 26, this.finalPrizeText.hint, {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 30, this.finalPrizeText.hint, {
         fontFamily: GAME_UI_FONT_FAMILY,
         fontSize: '14px',
         fontStyle: '700',
         color: '#d7e0ff',
       })
-      .setOrigin(1, 0.5)
+      .setOrigin(0.5)
       .setStroke('#01040b', 2)
   }
 
