@@ -30,10 +30,10 @@ test('world collision grid keeps the expected dimensions and values', () => {
   })
 })
 
-test('project house lower tree blockers match the authored collision cells', () => {
+test('project house keeps its walls and tree trunks solid with a path behind the canopies', () => {
   const expectedBlockedColumnsByRow = new Map([
-    [17, [5, 6, 7, 8, 9, 10, 11]],
-    [18, [5, 6, 11, 12]],
+    [17, [7, 8, 9, 10]],
+    [18, []],
     [19, [5, 6, 11, 12]],
     [20, []],
   ])
@@ -45,4 +45,13 @@ test('project house lower tree blockers match the authored collision cells', () 
 
     assert.deepEqual(actualColumns, expectedColumns, `row ${rowIndex} project-house tree columns`)
   })
+})
+
+test('trees in front of both houses have a clear path behind solid trunks', () => {
+  for (const [row, column] of [[7, 26], [7, 30], [18, 5], [18, 11]]) {
+    for (const x of [column, column + 1]) {
+      assert.equal(worldCollisions[row][x], 0, `canopy at ${row}, ${x} should be passable`)
+      assert.equal(worldCollisions[row + 1][x], COLLISION_BLOCKER, `trunk at ${row + 1}, ${x} should block`)
+    }
+  }
 })

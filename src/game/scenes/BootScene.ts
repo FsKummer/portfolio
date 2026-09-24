@@ -69,6 +69,17 @@ export class BootScene extends Phaser.Scene {
   }
 
   private createTextures() {
+    // ponytail: this silhouette matches game_map.png; use authored foreground tiles if the map changes.
+    const canopy = this.textures.createCanvas('world-tree-canopy', 24, 27)!
+    const map = this.textures.get('world-map').getSourceImage() as HTMLImageElement
+    const canopyInsets = [10, 8, 7, 6, 5, 5, 4, 4, 3, 3, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 4, 6, 9]
+
+    canopyInsets.forEach((inset, y) => {
+      const width = 24 - inset * 2
+      canopy.context.drawImage(map, 108 + inset, 28 + y, width, 1, inset, y, width, 1)
+    })
+    canopy.refresh()
+
     const graphics = this.add.graphics()
 
     graphics.fillStyle(0xf4f7ff)

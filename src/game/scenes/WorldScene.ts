@@ -306,6 +306,7 @@ export class WorldScene extends Phaser.Scene {
     this.player.setVelocity(velocityX, velocityY)
 
     const body = this.player.body as Phaser.Physics.Arcade.Body
+    this.player.setDepth(100 + body.bottom / WORLD_HEIGHT)
     if (velocityX !== 0 && velocityY !== 0) {
       body.velocity.normalize().scale(currentSpeed)
     }
@@ -491,6 +492,14 @@ export class WorldScene extends Phaser.Scene {
       .setOrigin(0)
       .setScale(WORLD_SCALE)
       .setDepth(0)
+
+    for (const [x, y] of [[108, 28], [144, 64], [312, 76], [360, 76], [60, 208], [132, 208]]) {
+      this.add
+        .image(x * WORLD_SCALE, y * WORLD_SCALE, 'world-tree-canopy')
+        .setOrigin(0)
+        .setScale(WORLD_SCALE)
+        .setDepth(100 + ((y + 30) * WORLD_SCALE) / WORLD_HEIGHT)
+    }
 
     WORLD_COLLISIONS.forEach((row, rowIndex) => {
       row.forEach((value, columnIndex) => {
