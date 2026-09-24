@@ -113,9 +113,9 @@ export const WORLD_INTERACTIONS: InteractionZone[] = [
     label: 'Contact Dock',
     trigger: 'interact',
     message: portfolioDialogues.contactSign,
-    x: 436 * WORLD_SCALE,
-    y: 34 * WORLD_SCALE,
-    width: 180 * WORLD_SCALE,
-    height: 130 * WORLD_SCALE,
+    x: 396 * WORLD_SCALE,
+    y: 88 * WORLD_SCALE,
+    width: 60 * WORLD_SCALE,
+    height: 32 * WORLD_SCALE,
   },
 ]

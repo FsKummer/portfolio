@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import Rectangle from 'phaser/src/geom/rectangle/Rectangle.js'
+import intersects from 'phaser/src/geom/intersects/RectangleToRectangle.js'
 
 const COLLISION_BLOCKER = 1025
 const COLLISION_COLUMNS = 70
@@ -53,5 +55,20 @@ test('trees in front of both houses have a clear path behind solid trunks', () =
       assert.equal(worldCollisions[row][x], 0, `canopy at ${row}, ${x} should be passable`)
       assert.equal(worldCollisions[row + 1][x], COLLISION_BLOCKER, `trunk at ${row + 1}, ${x} should block`)
     }
+  }
+})
+
+test('contact dock is reachable on the pier, but not from the right island', () => {
+  const source = readFileSync(new URL('../src/game/data/worldMap.ts', import.meta.url), 'utf8')
+  const match = source.match(/\{\s+id: 'contact-dock',[\s\S]*?\n  }/)
+  assert.ok(match, 'contact dock zone should be present')
+  const zone = Function('WORLD_SCALE', 'portfolioDialogues', `return (${match[0]})`)(4, { contactSign: '' })
+  const dock = new Rectangle(zone.x, zone.y, zone.width, zone.height)
+
+  for (const x of [504, 528, 612]) {
+    assert.equal(intersects(new Rectangle(x * 4, 156 * 4, 24, 18), dock), false, `right island at ${x}`)
+  }
+  for (const x of [416, 436, 448]) {
+    assert.equal(intersects(new Rectangle(x * 4, 100 * 4, 24, 18), dock), true, `pier at ${x}`)
   }
 })
