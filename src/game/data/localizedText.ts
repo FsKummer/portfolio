@@ -85,7 +85,7 @@ type FinalPrizeText = {
 const worldTextByLanguage: Record<LanguageCode, WorldText> = {
   en: {
     collected: 'collected',
-    controlsKeyboard: 'move: wasd/arrows   sprint: shift\ninteract: e / enter   map: m\nhelp: h',
+    controlsKeyboard: 'move: wasd/arrows   sprint: shift\ninteract: e / enter   map: m\nhelp: h   pause: esc',
     controlsMobile: 'move: d-pad   sprint: x   interact: a\nclose: b   help: y',
     dialogueCloseKeyboard: 'enter / space closes',
     dialogueCloseMobile: 'A or B closes',
@@ -116,7 +116,7 @@ const worldTextByLanguage: Record<LanguageCode, WorldText> = {
   es: {
     collected: 'recolectado',
     controlsKeyboard:
-      'mover: wasd/flechas   correr: shift\ninteractuar: e / enter   mapa: m\nayuda: h',
+      'mover: wasd/flechas   correr: shift\ninteractuar: e / enter   mapa: m\nayuda: h   pausa: esc',
     controlsMobile: 'mover: d-pad   correr: x   interactuar: a\ncerrar: b   ayuda: y',
     dialogueCloseKeyboard: 'enter / espacio cierra',
     dialogueCloseMobile: 'A o B cierra',
@@ -147,7 +147,7 @@ const worldTextByLanguage: Record<LanguageCode, WorldText> = {
   'pt-BR': {
     collected: 'coletado',
     controlsKeyboard:
-      'mover: wasd/setas   correr: shift\ninteragir: e / enter   mapa: m\najuda: h',
+      'mover: wasd/setas   correr: shift\ninteragir: e / enter   mapa: m\najuda: h   pausa: esc',
     controlsMobile: 'mover: d-pad   correr: x   interagir: a\nfechar: b   ajuda: y',
     dialogueCloseKeyboard: 'enter / espaço fecha',
     dialogueCloseMobile: 'A ou B fecha',
@@ -368,7 +368,7 @@ const finalPrizeTextByLanguage: Record<LanguageCode, FinalPrizeText> = {
     body:
       'You gathered every crystal and passed the final trial. The final prize is a direct path to Felipe Kummer.',
     downloadPdf: 'Download PDF',
-    hint: 'enter opens calendar   esc returns',
+    hint: 'enter opens calendar   backspace returns',
     scheduleCall: 'Schedule a 15 minute call',
     title: 'Mysterious Guide',
   },
@@ -376,7 +376,7 @@ const finalPrizeTextByLanguage: Record<LanguageCode, FinalPrizeText> = {
     body:
       'Reuniste todos los cristales y superaste la prueba final. El premio final es un camino directo hacia Felipe Kummer.',
     downloadPdf: 'Descargar PDF',
-    hint: 'enter abre el calendario   esc vuelve',
+    hint: 'enter abre el calendario   backspace vuelve',
     scheduleCall: 'Agenda una llamada de 15 minutos',
     title: 'Guía Misterioso',
   },
@@ -384,7 +384,7 @@ const finalPrizeTextByLanguage: Record<LanguageCode, FinalPrizeText> = {
     body:
       'Você reuniu todos os cristais e passou pela prova final. O prêmio final é um caminho direto até Felipe Kummer.',
     downloadPdf: 'Baixar PDF',
-    hint: 'enter abre o calendário   esc volta',
+    hint: 'enter abre o calendário   backspace volta',
     scheduleCall: 'Agendar uma chamada de 15 minutos',
     title: 'Guia Misterioso',
   },
@@ -427,24 +427,24 @@ export function getInteriorDialogueHint(
   if (options.isRematchChoice) {
     return options.isMobile
       ? `${options.pageText}${text.selectMobile}   ${text.confirmMobile}   B ${text.previous}`
-      : `${options.pageText}${text.selectKeyboard}   ${text.confirmKeyboard}   esc ${text.previous}`
+      : `${options.pageText}${text.selectKeyboard}   ${text.confirmKeyboard}   backspace ${text.previous}`
   }
 
   if (options.hasNextPage) {
     return options.isMobile
       ? `${options.pageText}${text.nextMobile}   B ${previousOrClose}`
-      : `${options.pageText}${text.nextKeyboard}   esc ${previousOrClose}`
+      : `${options.pageText}${text.nextKeyboard}   backspace ${previousOrClose}`
   }
 
   if (options.isChallenge) {
     return options.isMobile
       ? `${options.pageText}${text.challengeConfirmMobile}   B ${previousOrClose}`
-      : `${options.pageText}${text.challengeConfirmKeyboard}   esc ${previousOrClose}`
+      : `${options.pageText}${text.challengeConfirmKeyboard}   backspace ${previousOrClose}`
   }
 
   return options.isMobile
     ? `${options.pageText}A ${text.closes}   B ${previousOrClose}`
-    : `${options.pageText}enter ${text.closes}   esc ${previousOrClose}`
+    : `${options.pageText}enter ${text.closes}   backspace ${previousOrClose}`
 }
 
 export function getWorldDialogueHint(
@@ -464,21 +464,21 @@ export function getWorldDialogueHint(
     if (language === 'es') {
       return options.isMobile
         ? `${options.pageText}A siguiente   B ${previousOrClose}`
-        : `${options.pageText}enter siguiente   esc ${previousOrClose}`
+        : `${options.pageText}enter siguiente   backspace ${previousOrClose}`
     }
 
     if (language === 'pt-BR') {
       return options.isMobile
         ? `${options.pageText}A próximo   B ${previousOrClose}`
-        : `${options.pageText}enter próximo   esc ${previousOrClose}`
+        : `${options.pageText}enter próximo   backspace ${previousOrClose}`
     }
 
     return options.isMobile
       ? `${options.pageText}A next   B ${previousOrClose}`
-      : `${options.pageText}enter next   esc ${previousOrClose}`
+      : `${options.pageText}enter next   backspace ${previousOrClose}`
   }
 
   return options.isMobile
     ? `${options.pageText}A ${closes}   B ${previousOrClose}`
-    : `${options.pageText}enter ${closes}   esc ${previousOrClose}`
+    : `${options.pageText}enter ${closes}   backspace ${previousOrClose}`
 }

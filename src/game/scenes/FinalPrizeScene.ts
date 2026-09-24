@@ -208,7 +208,7 @@ export class FinalPrizeScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ENTER', () => this.openScheduleLink())
     this.input.keyboard?.on('keydown-SPACE', () => this.openScheduleLink())
     this.input.keyboard?.on('keydown-E', () => this.openScheduleLink())
-    this.input.keyboard?.on('keydown-ESC', () => this.returnToWorld())
+    this.input.keyboard?.on('keydown-BACKSPACE', () => this.returnToWorld())
   }
 
   private openScheduleLink() {

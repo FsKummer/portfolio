@@ -562,7 +562,7 @@ export class InteriorScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-E', () => this.handlePrimaryAction())
     this.input.keyboard?.on('keydown-SPACE', () => this.handlePrimaryAction())
     this.input.keyboard?.on('keydown-ENTER', () => this.handlePrimaryAction())
-    this.input.keyboard?.on('keydown-ESC', () => this.handleBackAction())
+    this.input.keyboard?.on('keydown-BACKSPACE', () => this.handleBackAction())
     this.input.keyboard?.on('keydown-H', () => this.toggleHelpPanel())
     this.input.keyboard?.on('keydown-LEFT', () => this.changeRematchChoice(-1))
     this.input.keyboard?.on('keydown-A', () => this.changeRematchChoice(-1))

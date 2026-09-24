@@ -261,3 +261,43 @@
   max-height: 100%;
   image-rendering: pixelated;
 }
+
+.pause-menu {
+  width: min(360px, 90vw);
+  padding: 32px;
+  border: 2px solid #90a3ff;
+  background: #050913;
+  color: #edf2ff;
+  font-family: Verdana, 'Trebuchet MS', sans-serif;
+  text-align: center;
+}
+
+.pause-menu::backdrop {
+  background: rgb(2 4 13 / 72%);
+}
+
+.pause-menu h2 {
+  margin: 0 0 28px;
+  font-size: 28px;
+}
+
+.pause-menu form {
+  display: grid;
+  gap: 16px;
+}
+
+.pause-menu button {
+  padding: 14px;
+  border: 2px solid #596aa5;
+  background: #0f1730;
+  color: #edf2ff;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.pause-menu button:hover,
+.pause-menu button:focus-visible {
+  outline: 2px solid #f6f8ff;
+  outline-offset: 3px;
+  background: #172141;
+}

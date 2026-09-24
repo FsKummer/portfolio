@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { preloadAudio } from '../systems/audio'
+import { installPauseMenu } from '../systems/pause'
 
 const DIRECTION_SEGMENTS = {
   left: { start: 0, end: 5 },
@@ -65,6 +66,7 @@ export class BootScene extends Phaser.Scene {
     this.createCharacterAnimations('amelia')
     this.createCharacterAnimations('alex')
     this.createCharacterAnimations('bob')
+    installPauseMenu(this.game)
     this.scene.start('intro')
   }
 
